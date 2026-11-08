@@ -13,7 +13,7 @@
     "android": {
       "package": "com.luiza.meowfit",
       "adaptiveIcon": {
-        "backgroundColor": "#140C1F",
+        "backgroundColor": "#10021D",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png"
       },
