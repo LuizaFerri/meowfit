@@ -10,10 +10,13 @@ import { useApp } from '@/store/useApp';
 import { refreshWidgets } from '@/widgets';
 import { ThemeProvider, useTheme } from '@/components/ThemeProvider';
 import { DialogHost } from '@/components/DialogHost';
+import { AnimatedSplash } from '@/components/AnimatedSplash';
+import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { NavigationBar } from 'expo-navigation-bar';
 
 setupNotifications();
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function Gate() {
   const { colors } = useTheme();
@@ -108,6 +111,7 @@ export default function RootLayout() {
         <ThemedStatusBar />
         <Gate />
         <DialogHost />
+        <AnimatedSplash />
       </ThemeProvider>
     </SQLiteProvider>
   );

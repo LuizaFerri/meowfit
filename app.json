@@ -13,7 +13,7 @@
     "android": {
       "package": "com.luiza.meowfit",
       "adaptiveIcon": {
-        "backgroundColor": "#170A2B",
+        "backgroundColor": "#140C1F",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png"
       },
@@ -51,12 +51,12 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
+          "image": "./assets/logo-lilas.png",
           "imageWidth": 240,
           "resizeMode": "contain",
-          "backgroundColor": "#F6F1FB",
+          "backgroundColor": "#EFDFFC",
           "dark": {
-            "image": "./assets/splash-icon.png",
+            "image": "./assets/logo-dark.png",
             "backgroundColor": "#16121E"
           }
         }
@@ -106,7 +106,8 @@
             }
           ]
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": false

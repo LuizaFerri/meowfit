@@ -3,19 +3,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Line } from 'react-native-svg';
 import { useTheme } from './ThemeProvider';
 
-const ART_RATIO = 1500 / 501;
+const ART_RATIO = 3;
 
 const VARIANTS = {
   light: {
     art: require('../../assets/header.jpg'),
-    top: '#EFDFFC',
+    top: '#F0E3FE',
     ink: '#3B1A5E',
     inkSoft: '#76658F',
     accent: '#8B5CD6',
   },
   dark: {
     art: require('../../assets/header-dark.jpg'),
-    top: '#1D1429',
+    top: '#1A0D26',
     ink: '#F1EAFB',
     inkSoft: '#B5A8CC',
     accent: '#B48CF2',
