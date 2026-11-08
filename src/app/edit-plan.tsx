@@ -1,8 +1,11 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform } from 'react-native';
+import { KeyboardAvoidingView, Platform, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PartEditor } from '@/components/PartEditor';
+import { space } from '@/components/theme';
+import { useTheme } from '@/components/ThemeProvider';
 import { Button, Screen } from '@/components/ui';
 import { savePlan } from '@/db/queries';
 import { Alert } from '@/lib/alert';
@@ -16,6 +19,8 @@ export default function EditPlan() {
   const params = useLocalSearchParams<{ parte?: Part; novo?: string; modo?: 'texto' }>();
   const part: Part = params.parte === 'dieta' ? 'dieta' : 'treino';
   const db = useSQLiteContext();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const profile = useProfile();
   const loadActive = useApp((s) => s.loadActive);
   const [workout, setWorkout] = useState(() => toWorkoutDraft(profile.plan));
@@ -49,7 +54,6 @@ export default function EditPlan() {
           onDiet={setDiet}
           initialMode={params.modo === 'texto' ? 'text' : 'form'}
         />
-        <Button label="Salvar" icon="checkmark" onPress={save} disabled={busy} />
         <Button
           variant="ghost"
           icon="folder-open-outline"
@@ -57,6 +61,18 @@ export default function EditPlan() {
           onPress={() => router.replace({ pathname: '/import', params: { parte: part } })}
         />
       </Screen>
+      <View
+        style={{
+          paddingHorizontal: space.lg,
+          paddingTop: 10,
+          paddingBottom: 10 + insets.bottom,
+          backgroundColor: colors.bg,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+        }}
+      >
+        <Button label={part === 'treino' ? 'Salvar treino' : 'Salvar dieta'} icon="checkmark" onPress={save} disabled={busy} />
+      </View>
     </KeyboardAvoidingView>
   );
 }
