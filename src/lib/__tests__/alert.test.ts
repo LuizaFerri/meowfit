@@ -1,35 +1,30 @@
-jest.mock('react-native', () => ({ Platform: { OS: 'web' }, Alert: { alert: jest.fn() } }));
+import { Alert, closeDialog, useDialogs } from '@/lib/alert';
 
-const confirm = jest.fn();
-const alert = jest.fn();
-(globalThis as any).window = { confirm, alert };
+beforeEach(() => useDialogs.setState({ queue: [] }));
 
-const { Alert } = require('@/lib/alert') as typeof import('@/lib/alert');
-
-beforeEach(() => jest.clearAllMocks());
-
-test('confirmation dialogs run the action only when confirmed', () => {
+test('confirmation dialogs run only the chosen button', () => {
   const onDelete = jest.fn();
   const onCancel = jest.fn();
-  const buttons = [
-    { text: 'Cancelar', style: 'cancel' as const, onPress: onCancel },
-    { text: 'Excluir', style: 'destructive' as const, onPress: onDelete },
-  ];
+  Alert.alert('Apagar meus dados?', 'Apaga tudo.', [
+    { text: 'Cancelar', style: 'cancel', onPress: onCancel },
+    { text: 'Apagar tudo', style: 'destructive', onPress: onDelete },
+  ]);
+  const [d] = useDialogs.getState().queue;
+  expect(d).toMatchObject({ title: 'Apagar meus dados?', message: 'Apaga tudo.' });
 
-  confirm.mockReturnValueOnce(true);
-  Alert.alert('Excluir Luiza?', 'Apaga tudo.', buttons);
-  expect(confirm).toHaveBeenCalledWith('Excluir Luiza?\n\nApaga tudo.');
+  closeDialog(d.id, d.buttons[1]);
   expect(onDelete).toHaveBeenCalledTimes(1);
   expect(onCancel).not.toHaveBeenCalled();
-
-  confirm.mockReturnValueOnce(false);
-  Alert.alert('Excluir Luiza?', 'Apaga tudo.', buttons);
-  expect(onDelete).toHaveBeenCalledTimes(1);
-  expect(onCancel).toHaveBeenCalledTimes(1);
+  expect(useDialogs.getState().queue).toEqual([]);
 });
 
-test('plain messages use a simple alert', () => {
-  Alert.alert('Nome', 'Digite um nome para o perfil.');
-  expect(alert).toHaveBeenCalledWith('Nome\n\nDigite um nome para o perfil.');
-  expect(confirm).not.toHaveBeenCalled();
+test('plain messages get an OK button and queue up in order', () => {
+  Alert.alert('Nome', 'Digite seu nome para continuar.');
+  Alert.alert('Ops', 'Outro aviso.');
+  const queue = useDialogs.getState().queue;
+  expect(queue.map((d) => d.title)).toEqual(['Nome', 'Ops']);
+  expect(queue[0].buttons).toEqual([{ text: 'OK' }]);
+
+  closeDialog(queue[0].id, queue[0].buttons[0]);
+  expect(useDialogs.getState().queue.map((d) => d.title)).toEqual(['Ops']);
 });

@@ -9,6 +9,7 @@ import { setupNotifications, syncWaterReminders } from '@/lib/notifications';
 import { useApp } from '@/store/useApp';
 import { refreshWidgets } from '@/widgets';
 import { ThemeProvider, useTheme } from '@/components/ThemeProvider';
+import { DialogHost } from '@/components/DialogHost';
 import * as SystemUI from 'expo-system-ui';
 import { NavigationBar } from 'expo-navigation-bar';
 
@@ -105,6 +106,7 @@ export default function RootLayout() {
       <ThemeProvider>
         <ThemedStatusBar />
         <Gate />
+        <DialogHost />
       </ThemeProvider>
     </SQLiteProvider>
   );

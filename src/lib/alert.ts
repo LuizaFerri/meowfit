@@ -1,21 +1,27 @@
-import { Alert as NativeAlert, Platform, type AlertButton } from 'react-native';
+import type { AlertButton } from 'react-native';
+import { create } from 'zustand';
 
-function webAlert(title: string, message?: string, buttons?: AlertButton[]) {
-  const text = message ? `${title}\n\n${message}` : title;
-  const cancel = buttons?.find((b) => b.style === 'cancel');
-  const action = buttons?.find((b) => b.style !== 'cancel');
-  if (cancel && action) {
-    if (window.confirm(text)) action.onPress?.();
-    else cancel.onPress?.();
-    return;
-  }
-  window.alert(text);
-  (action ?? cancel)?.onPress?.();
+export type Dialog = { id: number; title: string; message?: string; buttons: AlertButton[] };
+
+type DialogState = { queue: Dialog[] };
+
+let nextId = 0;
+
+export const useDialogs = create<DialogState>(() => ({ queue: [] }));
+
+export function closeDialog(id: number, button?: AlertButton) {
+  useDialogs.setState((s) => ({ queue: s.queue.filter((d) => d.id !== id) }));
+  button?.onPress?.();
 }
 
 export const Alert = {
   alert(title: string, message?: string, buttons?: AlertButton[]) {
-    if (Platform.OS === 'web') webAlert(title, message, buttons);
-    else NativeAlert.alert(title, message, buttons);
+    const dialog: Dialog = {
+      id: ++nextId,
+      title,
+      message,
+      buttons: buttons && buttons.length > 0 ? buttons : [{ text: 'OK' }],
+    };
+    useDialogs.setState((s) => ({ queue: [...s.queue, dialog] }));
   },
 };
