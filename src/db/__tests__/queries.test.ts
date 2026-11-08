@@ -151,3 +151,25 @@ test('free text for meals eaten off the plan', async () => {
   await q.setMealNote(db, pid, '2026-11-07', 'Jantar', '   ');
   expect((await q.getMealNotes(db, pid, '2026-11-07')).size).toBe(0);
 });
+
+test('resetting workouts keeps the plan, diet, water and measurements', async () => {
+  const { db, pid } = await setup();
+  await q.setWorkoutDone(db, pid, '2026-11-02', 'Segunda', '', true);
+  await q.setExerciseDone(db, pid, '2026-11-02', 'agachamento', true);
+  await q.upsertSet(db, pid, 'agachamento', '2026-11-02', 0, 20, '12');
+  await q.addWater(db, pid, '2026-11-02', 500);
+  await q.setMeal(db, pid, '2026-11-02', 'Almoço', 0);
+  await q.addMeasurement(db, pid, '2026-11-02', 63, 78);
+  await q.setHabit(db, pid, '2026-11-02', 'Dormi bem', true);
+
+  await q.resetWorkoutHistory(db, pid);
+
+  expect(await q.getWorkoutDates(db, pid)).toEqual([]);
+  expect((await q.getDoneExercises(db, pid, '2026-11-02')).size).toBe(0);
+  expect(await q.getExerciseHistory(db, pid, 'agachamento')).toHaveLength(0);
+  expect(await q.getWater(db, pid, '2026-11-02')).toBe(500);
+  expect((await q.getMealLogs(db, pid, '2026-11-02')).get('Almoço')).toBe(0);
+  expect(await q.getMeasurements(db, pid)).toHaveLength(1);
+  expect((await q.getHabitChecks(db, pid, '2026-11-02')).size).toBe(1);
+  expect((await q.getProfile(db, pid))?.plan.days).toHaveLength(5);
+});

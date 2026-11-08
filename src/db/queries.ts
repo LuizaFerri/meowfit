@@ -385,3 +385,9 @@ export async function recordSchedule(db: SQLiteDatabase, pid: number, before: Pl
   const next = nextSchedule(await getSchedule(db, pid), before, after, today);
   if (next) await setSchedule(db, pid, next);
 }
+
+export async function resetWorkoutHistory(db: SQLiteDatabase, pid: number) {
+  await db.withTransactionAsync(async () => {
+    for (const t of ['workout_done', 'exercise_done', 'set_logs']) await db.runAsync(`DELETE FROM ${t} WHERE profile_id = ?`, pid);
+  });
+}

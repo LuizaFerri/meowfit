@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Alert } from '@/lib/alert';
 import { Body, Button, Card, Chip, Field, Row, Screen, Subtitle, fmtNum, parseNum } from '@/components/ui';
-import { deleteProfile, listProfiles, updateProfile } from '@/db/queries';
+import { deleteProfile, listProfiles, resetWorkoutHistory, updateProfile } from '@/db/queries';
 import { makeBackup, makePlanFile } from '@/lib/backup';
 import type { Part } from '@/lib/planText';
 import { todayKey } from '@/lib/dates';
@@ -76,6 +76,24 @@ export default function ProfileTab() {
             await deleteProfile(db, profile.id);
             const next = (profiles ?? []).find((p) => p.id !== profile.id);
             await switchTo(db, next?.id ?? null);
+          }),
+        },
+      ],
+    );
+
+  const resetWorkouts = () =>
+    Alert.alert(
+      'Zerar treinos?',
+      'Apaga a sequência, o recorde, os treinos concluídos e as cargas anotadas. Seu treino, sua dieta, água, refeições e medidas continuam.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Zerar',
+          style: 'destructive',
+          onPress: run(async () => {
+            await resetWorkoutHistory(db, profile.id);
+            await loadActive(db);
+            Alert.alert('Tudo zerado! 🐾', 'Sua sequência começa do zero no próximo treino.');
           }),
         },
       ],
@@ -159,6 +177,7 @@ export default function ProfileTab() {
         />
       </Card>
 
+      <Button variant="ghost" label="Zerar treinos e sequência" icon="refresh-outline" onPress={resetWorkouts} />
       <Button variant="danger" label="Apagar meus dados" icon="trash-outline" onPress={remove} />
       <Body muted style={{ textAlign: 'center', fontSize: 12, color: colors.muted }}>
         MeowFit · dados salvos só neste celular
