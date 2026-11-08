@@ -1,0 +1,58 @@
+# Claude / agentes de IA
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+.mcp.json
+
+# Dependências
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Builds Android
+*.apk
+*.aab
+.kotlin/
+/android
+/ios
+
+# Assinatura e credenciais
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+credentials.json
+
+# Metro
+.metro-health-check*
+
+# Testes
+coverage/
+
+# Logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
+
+# Ambiente
+.env
+.env*.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Sistema e editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.orig.*
