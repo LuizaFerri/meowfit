@@ -146,16 +146,59 @@ const CLOCK = String.raw`\d{1,2}(?::\d{2}|h\d{0,2})`;
 const TIME_RE = new RegExp(String.raw`^(${CLOCK}(?:\s*(?:a|às|as|até|ate|-|–)\s*${CLOCK})?)\s*[,\-–:]?\s+(.+)$`, 'i');
 const OPTION_RE = /^op[cç][aã]o\s*\d*\s*[:\-–.)]\s*(.+)$/i;
 
+const TRAILING_TIME_RE = new RegExp(String.raw`^(.+?)\s*[,\-–(]\s*(${CLOCK}(?:\s*(?:a|às|as|até|ate|-|–)\s*${CLOCK})?)\)?$`, 'i');
+
+const MEAL_EXACT = ['cafe'];
+
+const MEAL_WORDS = [
+  'cafe da manha',
+  'cafe da tarde',
+  'cafe da noite',
+  'desjejum',
+  'colacao',
+  'almoco',
+  'lanche',
+  'merenda',
+  'jantar',
+  'janta',
+  'ceia',
+  'pre treino',
+  'pre-treino',
+  'pos treino',
+  'pos-treino',
+  'refeicao',
+  'brunch',
+];
+
+export function isMealName(name: string): boolean {
+  const n = normalize(name).replace(/^\d+\s*[ªºa]?\s*/, '');
+  if (MEAL_EXACT.includes(n)) return true;
+  return MEAL_WORDS.some((w) => n === w || n.startsWith(`${w} `) || n.startsWith(`${w}-`) || n.startsWith(`${w}(`));
+}
+
 const cleanOption = (s: string) => s.trim().replace(/\.$/, '');
 
-function parseMeal(line: string): Meal | null {
-  let rest = line;
-  let time: string | undefined;
+function splitTime(line: string): { time?: string; rest: string } {
   const tm = line.match(TIME_RE);
-  if (tm) {
-    time = tm[1].replace(/\s+/g, ' ');
-    rest = tm[2];
-  }
+  if (tm) return { time: tm[1].replace(/\s+/g, ' '), rest: tm[2] };
+  const tr = line.match(TRAILING_TIME_RE);
+  if (tr && isMealName(tr[1])) return { time: tr[2].replace(/\s+/g, ' '), rest: tr[1] };
+  return { rest: line };
+}
+
+function startsMeal(line: string, blankBefore: boolean): boolean {
+  if (TIME_RE.test(line)) return true;
+  const { time, rest } = splitTime(line);
+  if (time) return true;
+  const colon = rest.indexOf(':');
+  const name = colon > 0 ? rest.slice(0, colon) : rest;
+  if (isMealName(name)) return true;
+  return blankBefore && colon < 0;
+}
+
+function parseMeal(line: string): Meal | null {
+  const { time, rest: afterTime } = splitTime(line);
+  let rest = afterTime;
   let name: string;
   let options: string[];
   if (rest.includes('|') && !rest.includes(':')) {
@@ -179,15 +222,23 @@ export function parsePlanText(text: string, planName = 'Plano importado', part?:
   let section: Section = part === 'dieta' ? 'meals' : 'days';
   let current: WorkoutDay | null = null;
   const mealLines = new Map<Meal, { line: number; text: string }>();
+  let openMeal: Meal | null = null;
+  let blankBefore = true;
 
   text.split(/\r?\n/).forEach((raw, i) => {
     const line = stripBullet(raw);
-    if (!line) return;
+    if (!line) {
+      blankBefore = true;
+      return;
+    }
+    const afterBlank = blankBefore;
+    blankBefore = false;
 
     const header = SECTION_HEADERS.find(([re]) => re.test(line));
     if (header) {
       section = header[1];
       current = null;
+      openMeal = null;
       return;
     }
 
@@ -195,6 +246,7 @@ export function parsePlanText(text: string, planName = 'Plano importado', part?:
     if (day) {
       section = 'days';
       current = day;
+      openMeal = null;
       plan.days.push(day);
       found.days = true;
       return;
@@ -224,14 +276,24 @@ export function parsePlanText(text: string, planName = 'Plano importado', part?:
         const opt = line.match(OPTION_RE);
         if (opt) {
           const last = plan.meals[plan.meals.length - 1];
-          if (last) last.options.push(cleanOption(opt[1]));
-          else warnings.push({ line: i + 1, text: raw.trim() });
+          if (last) {
+            last.options.push(cleanOption(opt[1]));
+            openMeal = last;
+          } else warnings.push({ line: i + 1, text: raw.trim() });
+          return;
+        }
+        if (openMeal && !startsMeal(line, afterBlank)) {
+          const item = cleanOption(line);
+          const opts: string[] = openMeal.options;
+          if (opts.length === 0) opts.push(item);
+          else opts[opts.length - 1] = `${opts[opts.length - 1]}\n${item}`;
           return;
         }
         const meal = parseMeal(line);
         if (meal) {
           plan.meals.push(meal);
           mealLines.set(meal, { line: i + 1, text: raw.trim() });
+          openMeal = meal.options.length === 0 ? meal : null;
         } else warnings.push({ line: i + 1, text: raw.trim() });
         return;
       }
@@ -309,7 +371,18 @@ export function planToText(plan: Plan, part?: Part): string {
     out.push('Hábitos:', ...plan.habits, '');
   }
   if (want.has('meals') && plan.meals.length) {
-    out.push('Refeições:', ...plan.meals.map((m) => `${m.time ? `${m.time}, ` : ''}${m.name}: ${m.options.join(' | ')}`), '');
+    out.push('Refeições:');
+    const blocks = plan.meals.some((m) => m.options.some((o) => o.includes('\n')));
+    for (const m of plan.meals) {
+      if (!blocks) {
+        out.push(`${m.time ? `${m.time}, ` : ''}${m.name}: ${m.options.join(' | ')}`);
+        continue;
+      }
+      out.push('', `${m.time ? `${m.time} ` : ''}${m.name}`);
+      if (m.options.length === 1) out.push(...m.options[0].split('\n'));
+      else m.options.forEach((o, i) => out.push(`Opção ${i + 1}: ${o.split('\n')[0]}`, ...o.split('\n').slice(1)));
+    }
+    out.push('');
   }
   const t = plan.targets;
   const targetLines = [

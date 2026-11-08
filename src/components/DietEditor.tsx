@@ -114,9 +114,10 @@ function MealCard({
       </Row>
       <View style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
         <Body muted style={{ fontSize: 13 }}>
-          O que você pode comer. Cada opção é uma escolha diferente.
+          O que você come nessa refeição: um alimento por linha, com a quantidade (ex.: “Batata cozida: 120 g”). Se o
+          nutricionista deu alternativas, crie uma opção para cada.
         </Body>
-        <TextList items={meal.options} onChange={(options) => onChange({ options })} placeholder="Opção" addLabel="Opção" />
+        <TextList items={meal.options} onChange={(options) => onChange({ options })} placeholder="Opção" addLabel="Opção" multiline />
       </View>
     </Card>
   );
@@ -127,11 +128,13 @@ function TextList({
   onChange,
   placeholder,
   addLabel,
+  multiline = false,
 }: {
   items: TextDraft[];
   onChange: (next: TextDraft[]) => void;
   placeholder: string;
   addLabel?: string;
+  multiline?: boolean;
 }) {
   return (
     <>
@@ -141,7 +144,9 @@ function TextList({
             flex
             value={t.text}
             onChangeText={(text) => onChange(items.map((x) => (x.key === t.key ? { ...x, text } : x)))}
-            placeholder={`${placeholder} ${i + 1}`}
+            placeholder={multiline ? `${placeholder} ${i + 1}\nUm alimento por linha` : `${placeholder} ${i + 1}`}
+            multiline={multiline}
+            style={multiline ? { minHeight: 24 + 24 * Math.max(2, t.text.split('\n').length + 1), textAlignVertical: 'top' } : undefined}
           />
           <IconButton icon="close" label="Remover" onPress={() => onChange(items.filter((x) => x.key !== t.key))} />
         </Row>

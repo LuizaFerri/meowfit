@@ -86,9 +86,11 @@ function EntryRow({ entry }: { entry: HistoryEntry }) {
   const tint = entry.status === 'plan' ? colors.accent : entry.status === 'off' ? colors.warn : colors.border;
   const detail =
     entry.status === 'plan'
-      ? entry.text
-        ? `Opção ${(entry.option ?? 0) + 1} · ${entry.text}`
-        : `Opção ${(entry.option ?? 0) + 1}`
+      ? entry.text?.includes('\n')
+        ? `Seguiu o cardápio · ${entry.text.split('\n').join(', ')}`
+        : entry.text
+          ? `Opção ${(entry.option ?? 0) + 1} · ${entry.text}`
+          : `Opção ${(entry.option ?? 0) + 1}`
       : entry.status === 'off'
         ? entry.text
           ? `Fora do plano · ${entry.text}`

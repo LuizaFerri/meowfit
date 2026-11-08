@@ -99,7 +99,13 @@ export default function Diet() {
                   {chosen !== undefined && <Ionicons name="checkmark-circle" size={22} color={chosen >= 0 ? colors.accent : colors.warn} />}
                 </Row>
                 {m.options.map((o, i) => (
-                  <Option key={i} label={`Opção ${i + 1}`} text={o} active={chosen === i} onPress={() => choose(m.name, i)} />
+                  <Option
+                    key={i}
+                    label={m.options.length === 1 && o.includes('\n') ? 'Segui o cardápio' : `Opção ${i + 1}`}
+                    text={o}
+                    active={chosen === i}
+                    onPress={() => choose(m.name, i)}
+                  />
                 ))}
                 <Option label="Outra coisa" active={chosen === -1} onPress={() => choose(m.name, -1)} warn />
                 {chosen === -1 && (
@@ -170,6 +176,30 @@ function TargetsCard({ targets: t }: { targets: Targets }) {
   );
 }
 
+function OptionText({ text }: { text: string }) {
+  const { colors } = useTheme();
+  const lines = text.split('\n');
+  if (lines.length === 1) return <Body>{text}</Body>;
+  return (
+    <View style={{ gap: 4, marginTop: 2 }}>
+      {lines.map((line, i) => {
+        const colon = line.indexOf(':');
+        const name = colon > 0 ? line.slice(0, colon) : line;
+        const amount = colon > 0 ? line.slice(colon + 1).trim() : '';
+        return (
+          <Row key={i} style={{ alignItems: 'flex-start', gap: 6 }}>
+            <Text style={{ color: colors.primary, fontSize: 15, lineHeight: 21 }}>•</Text>
+            <Text style={{ flex: 1, fontSize: 15, lineHeight: 21, color: colors.text }}>
+              <Text style={{ fontWeight: '700' }}>{name}</Text>
+              {amount ? <Text style={{ color: colors.muted }}>{` · ${amount}`}</Text> : null}
+            </Text>
+          </Row>
+        );
+      })}
+    </View>
+  );
+}
+
 function Option({
   label,
   text,
@@ -217,7 +247,7 @@ function Option({
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 13, fontWeight: '600', color: active ? tint : colors.muted }}>{label}</Text>
-        {text ? <Body>{text}</Body> : null}
+        {text ? <OptionText text={text} /> : null}
       </View>
     </Pressable>
   );
