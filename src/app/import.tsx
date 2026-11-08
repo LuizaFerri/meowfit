@@ -5,8 +5,8 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Text, TextInput, View } from 'react-native';
 import { Alert } from '@/lib/alert';
 import { radius } from '@/components/theme';
-import { Body, Button, Card, Chip, Field, Row, Screen, Subtitle } from '@/components/ui';
-import { createProfile, savePlan } from '@/db/queries';
+import { Body, Button, Card, Chip, Row, Screen, Subtitle } from '@/components/ui';
+import { deleteProfile, savePlan } from '@/db/queries';
 import { parseJsonFile, restoreBackup, type BackupFile } from '@/lib/backup';
 import { pickTextFile } from '@/lib/files';
 import {
@@ -21,45 +21,12 @@ import {
   type Part,
   type Section,
 } from '@/lib/planText';
-import { emptyPlan, type Plan } from '@/lib/types';
+import type { Plan } from '@/lib/types';
 import { dayName, stampTreino, target } from '@/lib/workout';
 import { todayKey } from '@/lib/dates';
 import { useApp, useProfile } from '@/store/useApp';
 import { useTheme } from '@/components/ThemeProvider';
-
-const EXAMPLES: Record<Part, string> = {
-  treino: `Segunda: inferiores
-Aquecimento: 5-10 min de esteira
-Leg press: 3 x 12, carga ___ kg
-Prancha: 3 x 30 s
-
-Treino B: superiores
-Supino: 4 x 10, carga ___ kg
-
-Hábitos:
-Dormi 7 h ou mais
-Caminhei 8 mil passos`,
-  dieta: `7:30, café da manhã
-Opção 1: 2 ovos e pão integral
-Opção 2: iogurte com aveia
-
-12:30, almoço: frango, arroz e salada | peixe e batata
-Jantar: omelete com legumes | sopa com frango
-
-kcal: 1600-1750
-proteína: 100-110
-água: 2.5
-
-Regras:
-Proteína em toda refeição`,
-};
-
-const HELP: Record<Part, string> = {
-  treino:
-    'Cada treino começa com o dia (“Segunda: pernas”) ou “Treino A”. Depois, um exercício por linha: “Nome: séries x repetições”. Escreva “carga ___ kg” para anotar peso. A seção “Hábitos:” é opcional e vira o checklist da semana.',
-  dieta:
-    'Uma refeição por linha (“Almoço: opção 1 | opção 2”) ou o nome numa linha e as opções embaixo (“Opção 1: …”). O horário no começo é opcional (“12:30, almoço”). Metas: “kcal: 1600-1750”, “proteína: 100-110”, “água: 2.5”. Depois de “Regras:”, uma dica por linha.',
-};
+import { TEXT_EXAMPLES, TEXT_HELP } from '@/lib/planHelp';
 
 const SECTION_LABEL: Record<Section, string> = {
   days: 'treinos',
@@ -91,7 +58,6 @@ export default function Import() {
   const [text, setText] = useState(editing && part ? planToText(profile.plan, part) : '');
   const [preview, setPreview] = useState<Preview | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-  const [newName, setNewName] = useState('');
   const [busy, setBusy] = useState(false);
 
   const partName = part === 'dieta' ? 'dieta' : 'treino';
@@ -128,8 +94,7 @@ export default function Import() {
         );
       }
       const sections = (part ? PART_SECTIONS[part] : ALL_SECTIONS).filter((sec) => hasContent(parsed.plan, sec));
-      if (parsed.kind === 'backup' && restoring) setNewName(parsed.backup.profile?.name ?? '');
-      else if (sections.length === 0) return Alert.alert('Arquivo vazio', `O arquivo não tem ${partName}.`);
+      if (!(parsed.kind === 'backup' && restoring)) if (sections.length === 0) return Alert.alert('Arquivo vazio', `O arquivo não tem ${partName}.`);
       setPreview({
         incoming: parsed.plan,
         sections,
@@ -157,21 +122,33 @@ export default function Import() {
     }
   };
 
-  const applyNew = async () => {
-    if (!preview) return;
-    if (!newName.trim()) return Alert.alert('Nome', 'Digite o nome do novo perfil.');
-    setBusy(true);
-    try {
-      const id = preview.backup
-        ? await restoreBackup(db, preview.backup, preview.incoming, newName.trim())
-        : await createProfile(db, newName.trim(), null, stampTreino(pickSections(emptyPlan(), preview.incoming, preview.sections), todayKey()));
-      await switchTo(db, id);
-      router.dismissTo('/');
-    } catch (e) {
-      Alert.alert('Erro', (e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+  const replaceWithBackup = () => {
+    const backup = preview?.backup;
+    if (!preview || !backup) return;
+    Alert.alert(
+      'Substituir seus dados?',
+      'Treino, dieta, cargas, medidas e histórico atuais serão trocados pelos do backup. Isso não pode ser desfeito.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Substituir',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              const id = await restoreBackup(db, backup, preview.incoming);
+              await deleteProfile(db, profile.id);
+              await switchTo(db, id);
+              router.dismissTo('/');
+            } catch (e) {
+              Alert.alert('Não foi possível restaurar', (e as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const show = new Set(preview?.sections ?? []);
@@ -194,7 +171,7 @@ export default function Import() {
                 {showHelp && (
                   <View style={{ gap: 6 }}>
                     <Body muted style={{ fontSize: 13 }}>
-                      {HELP[part]}
+                      {TEXT_HELP[part]}
                     </Body>
                     <Text
                       style={[
@@ -207,16 +184,16 @@ export default function Import() {
                         },
                       ]}
                     >
-                      {EXAMPLES[part]}
+                      {TEXT_EXAMPLES[part]}
                     </Text>
-                    <Button small variant="ghost" label="Usar este exemplo" onPress={() => setText(EXAMPLES[part])} />
+                    <Button small variant="ghost" label="Usar este exemplo" onPress={() => setText(TEXT_EXAMPLES[part])} />
                   </View>
                 )}
                 <TextInput
                   multiline
                   value={text}
                   onChangeText={setText}
-                  placeholder={EXAMPLES[part].split('\n').slice(0, 3).join('\n') + '\n…'}
+                  placeholder={TEXT_EXAMPLES[part].split('\n').slice(0, 3).join('\n') + '\n…'}
                   placeholderTextColor={colors.muted}
                   textAlignVertical="top"
                   autoCorrect={false}
@@ -233,8 +210,8 @@ export default function Import() {
                 <Subtitle>{restoring ? 'Escolher backup' : 'Ou abrir arquivo'}</Subtitle>
                 <Body muted style={{ fontSize: 13 }}>
                   {restoring
-                    ? 'Backup .json exportado pelo MeowFit. Ele vira um novo perfil.'
-                    : `.json de ${partName} compartilhado pelo MeowFit, ou .txt no formato acima.`}
+                    ? 'Arquivo de backup salvo pelo MeowFit. Ele substitui os dados atuais deste celular.'
+                    : `Arquivo de ${partName} que alguém te enviou pelo MeowFit, ou um texto no formato acima.`}
                 </Body>
                 <Button variant="secondary" label="Escolher arquivo" icon="folder-open-outline" onPress={pickFile} />
               </Card>
@@ -328,30 +305,10 @@ export default function Import() {
             )}
 
             <Card>
-              {!preview.backup && (
-                <Button
-                  label={editing ? `Salvar ${partName}` : `Aplicar no perfil de ${profile.name}`}
-                  icon="checkmark-outline"
-                  onPress={applyHere}
-                  disabled={busy}
-                />
-              )}
-              {!editing && (
-                <>
-                  <Field
-                    label={preview.backup ? 'Nome do perfil restaurado' : 'Ou criar um novo perfil'}
-                    value={newName}
-                    onChangeText={setNewName}
-                    placeholder="Nome"
-                  />
-                  <Button
-                    variant="secondary"
-                    label={preview.backup ? 'Restaurar como novo perfil' : `Criar perfil com este ${partName}`}
-                    icon="person-add-outline"
-                    onPress={applyNew}
-                    disabled={busy}
-                  />
-                </>
+              {preview.backup ? (
+                <Button label="Substituir meus dados" icon="refresh-outline" onPress={replaceWithBackup} disabled={busy} />
+              ) : (
+                <Button label={`Salvar ${partName}`} icon="checkmark-outline" onPress={applyHere} disabled={busy} />
               )}
               <Button variant="ghost" label="Voltar e editar" onPress={() => setPreview(null)} />
             </Card>
@@ -363,7 +320,7 @@ export default function Import() {
 }
 
 function PreviewList({ title, items }: { title: string; items: string[] }) {
-  const { colors, s } = useTheme();
+  const { colors } = useTheme();
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, gap: 2 }}>
       <Body style={{ fontWeight: '700' }}>{title}</Body>

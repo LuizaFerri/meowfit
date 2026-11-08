@@ -24,7 +24,7 @@ const strArr = (v: unknown) => (Array.isArray(v) ? v.filter((x) => typeof x === 
 
 export function validatePlan(raw: unknown): Plan {
   if (!raw || typeof raw !== 'object' || !Array.isArray((raw as any).days)) {
-    throw new Error('O arquivo não contém um plano válido (falta "days").');
+    throw new Error('Este arquivo não tem um plano do MeowFit.');
   }
   const r = raw as any;
   const t = r.targets ?? {};
@@ -80,7 +80,7 @@ export function parseJsonFile(text: string): ParsedFile {
   try {
     raw = JSON.parse(text);
   } catch {
-    throw new Error('O arquivo não é um JSON válido.');
+    throw new Error('Este arquivo não é um backup nem um plano do MeowFit.');
   }
   if (raw?.type === 'backup' && raw.plan) {
     return { kind: 'backup', backup: raw as BackupFile, plan: validatePlan(raw.plan) };

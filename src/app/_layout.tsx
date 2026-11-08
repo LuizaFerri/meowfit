@@ -81,7 +81,7 @@ function Gate() {
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="new-profile" options={{ title: 'Novo perfil' }} />
+      <Stack.Screen name="new-profile" options={{ title: 'Boas-vindas' }} />
       <Stack.Screen name="import" options={{ title: 'Importar' }} />
       <Stack.Screen name="edit-plan" options={{ title: 'Editar' }} />
       <Stack.Screen name="workout/[day]" options={{ title: 'Treino' }} />

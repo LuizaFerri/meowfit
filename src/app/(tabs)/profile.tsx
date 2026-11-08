@@ -1,16 +1,14 @@
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Alert } from '@/lib/alert';
 import { Body, Button, Card, Chip, Field, Row, Screen, Subtitle, fmtNum, parseNum } from '@/components/ui';
-import { deleteProfile, listProfiles, savePlan, updateProfile } from '@/db/queries';
-import { samplePlan } from '@/data/samplePlan';
+import { deleteProfile, listProfiles, updateProfile } from '@/db/queries';
 import { makeBackup, makePlanFile } from '@/lib/backup';
-import { PART_SECTIONS, pickSections, type Part } from '@/lib/planText';
+import type { Part } from '@/lib/planText';
 import { todayKey } from '@/lib/dates';
 import { safeFileName, shareJson } from '@/lib/files';
-import { stampTreino } from '@/lib/workout';
 import { useApp, useData, useProfile } from '@/store/useApp';
 import { ThemePicker } from '@/components/ThemePicker';
 import { useTheme } from '@/components/ThemeProvider';
@@ -26,10 +24,14 @@ export default function ProfileTab() {
   const [height, setHeight] = useState(fmtNum(profile.height_cm));
   const { plan } = profile;
 
-  useEffect(() => {
+  const [editing, setEditing] = useState(false);
+  const [seen, setSeen] = useState({ id: profile.id, name: profile.name, height: profile.height_cm });
+  if (seen.id !== profile.id || seen.name !== profile.name || seen.height !== profile.height_cm) {
+    setSeen({ id: profile.id, name: profile.name, height: profile.height_cm });
     setName(profile.name);
     setHeight(fmtNum(profile.height_cm));
-  }, [profile.id, profile.name, profile.height_cm]);
+    if (seen.id !== profile.id) setEditing(false);
+  }
 
   const dirty = name.trim() !== profile.name || parseNum(height) !== profile.height_cm;
 
@@ -40,10 +42,6 @@ export default function ProfileTab() {
       Alert.alert('Ops', (e as Error).message);
     }
   };
-
-  const [editing, setEditing] = useState(false);
-
-  useEffect(() => setEditing(false), [profile.id]);
 
   const cancelEdit = () => {
     setName(profile.name);
@@ -64,33 +62,14 @@ export default function ProfileTab() {
     shareJson(`backup-${safeFileName(profile.name)}-${todayKey()}.json`, await makeBackup(db, profile.id)),
   );
 
-  const resetSample = (part: Part) =>
-    Alert.alert(
-      `Usar ${part} de exemplo?`,
-      part === 'treino'
-        ? 'Os treinos e hábitos atuais serão substituídos. O histórico de cargas fica.'
-        : 'O cardápio, as metas e as regras atuais serão substituídos.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Substituir',
-          onPress: run(async () => {
-            const next = pickSections(plan, samplePlan(), PART_SECTIONS[part]);
-            await savePlan(db, profile.id, part === 'treino' ? stampTreino(next, todayKey()) : next);
-            await loadActive(db);
-          }),
-        },
-      ],
-    );
-
   const remove = () =>
     Alert.alert(
-      `Excluir ${profile.name}?`,
-      'Apaga o perfil e todo o histórico dele deste celular. Exporte um backup antes se quiser guardar.',
+      'Apagar meus dados?',
+      'Apaga treino, dieta, cargas, medidas e todo o histórico deste celular, e o app volta para o cadastro inicial. Se quiser guardar, exporte um backup antes.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Excluir',
+          text: 'Apagar tudo',
           style: 'destructive',
           onPress: run(async () => {
             await deleteProfile(db, profile.id);
@@ -105,15 +84,16 @@ export default function ProfileTab() {
 
   return (
     <Screen>
-      <Card>
-        <Subtitle>Perfis neste celular</Subtitle>
-        <Row style={{ flexWrap: 'wrap' }}>
-          {(profiles ?? []).map((p) => (
-            <Chip key={p.id} label={p.name} active={p.id === profile.id} onPress={() => switchTo(db, p.id)} />
-          ))}
-          <Chip label="+ Novo" onPress={() => router.push('/new-profile')} />
-        </Row>
-      </Card>
+      {(profiles ?? []).length > 1 && (
+        <Card>
+          <Subtitle>Perfis neste celular</Subtitle>
+          <Row style={{ flexWrap: 'wrap' }}>
+            {(profiles ?? []).map((p) => (
+              <Chip key={p.id} label={p.name} active={p.id === profile.id} onPress={() => switchTo(db, p.id)} />
+            ))}
+          </Row>
+        </Card>
+      )}
 
       <Card>
         <Row style={{ justifyContent: 'space-between' }}>
@@ -148,7 +128,6 @@ export default function ProfileTab() {
         title="Treino"
         summary={`${plan.days.length} dias · ${exercises} exercícios · ${plan.habits.length} hábitos`}
         onShare={exportPart('treino')}
-        onSample={() => resetSample('treino')}
       />
 
       <PartCard
@@ -158,7 +137,6 @@ export default function ProfileTab() {
           plan.targets.kcalMin !== undefined ? ` · ${plan.targets.kcalMin}–${plan.targets.kcalMax} kcal` : ''
         }`}
         onShare={exportPart('dieta')}
-        onSample={() => resetSample('dieta')}
       />
 
       <ThemePicker />
@@ -178,7 +156,7 @@ export default function ProfileTab() {
         />
       </Card>
 
-      <Button variant="danger" label={`Excluir perfil ${profile.name}`} icon="trash-outline" onPress={remove} />
+      <Button variant="danger" label="Apagar meus dados" icon="trash-outline" onPress={remove} />
       <Body muted style={{ textAlign: 'center', fontSize: 12, color: colors.muted }}>
         MeowFit · dados salvos só neste celular
       </Body>
@@ -186,44 +164,27 @@ export default function ProfileTab() {
   );
 }
 
-function PartCard({
-  part,
-  title,
-  summary,
-  onShare,
-  onSample,
-}: {
-  part: Part;
-  title: string;
-  summary: string;
-  onShare: () => void;
-  onSample: () => void;
-}) {
-  const { colors } = useTheme();
+function PartCard({ part, title, summary, onShare }: { part: Part; title: string; summary: string; onShare: () => void }) {
   return (
     <Card>
       <Subtitle>{title}</Subtitle>
       <Body muted>{summary}</Body>
+      <Button
+        small
+        label={`Editar ${title.toLowerCase()}`}
+        icon="create-outline"
+        onPress={() => router.push({ pathname: '/edit-plan', params: { parte: part } })}
+      />
       <Row>
         <Button
           small
-          label="Importar"
-          icon="download-outline"
-          onPress={() => router.push({ pathname: '/import', params: { parte: part } })}
+          variant="ghost"
+          label="Colar texto"
+          icon="clipboard-outline"
+          onPress={() => router.push({ pathname: '/edit-plan', params: { parte: part, modo: 'texto' } })}
           style={{ flex: 1 }}
         />
-        <Button
-          small
-          variant="secondary"
-          label="Editar"
-          icon="create-outline"
-          onPress={() => router.push({ pathname: '/import', params: { parte: part, modo: 'editar' } })}
-          style={{ flex: 1 }}
-        />
-      </Row>
-      <Row>
-        <Button small variant="ghost" label="Compartilhar" icon="share-outline" onPress={onShare} style={{ flex: 1 }} />
-        <Button small variant="ghost" label="Exemplo" icon="sparkles-outline" onPress={onSample} style={{ flex: 1 }} />
+        <Button small variant="ghost" label="Enviar" icon="share-outline" onPress={onShare} style={{ flex: 1 }} />
       </Row>
     </Card>
   );
