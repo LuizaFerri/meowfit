@@ -392,3 +392,7 @@ export async function resetWorkoutHistory(db: SQLiteDatabase, pid: number) {
     for (const t of ['workout_done', 'exercise_done', 'set_logs']) await db.runAsync(`DELETE FROM ${t} WHERE profile_id = ?`, pid);
   });
 }
+
+export async function updateMeasurement(db: SQLiteDatabase, id: number, weight: number | null, waist: number | null) {
+  await db.runAsync('UPDATE measurements SET weight_kg = ?, waist_cm = ? WHERE id = ?', weight, waist, id);
+}

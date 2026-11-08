@@ -1,5 +1,6 @@
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
+import { Keyboard } from 'react-native';
 import { savePlan } from '@/db/queries';
 import { useApp, useProfile } from '@/store/useApp';
 import { Body, Button, Card, Chip, Field, Row, Subtitle, fmtNum, parseNum } from './ui';
@@ -14,6 +15,7 @@ export function WaterGoalCard() {
   const [custom, setCustom] = useState('');
 
   const save = async (waterL: number) => {
+    Keyboard.dismiss();
     await savePlan(db, profile.id, { ...profile.plan, targets: { ...profile.plan.targets, waterL } });
     await loadActive(db);
     setCustom('');

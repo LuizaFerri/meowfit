@@ -42,7 +42,7 @@ export function BmiCard({ weightKg, heightCm }: { weightKg: number | null; heigh
     return (
       <Card>
         <Subtitle>IMC</Subtitle>
-        <Body muted>Registre seu peso nas medidas do Perfil para ver o IMC e a faixa de peso saudável.</Body>
+        <Body muted>Adicione seu peso em Dados, no Perfil, para ver o IMC e a faixa de peso saudável.</Body>
         <Button small variant="secondary" label="Registrar peso" onPress={() => router.navigate('/profile')} />
       </Card>
     );

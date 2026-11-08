@@ -1,10 +1,8 @@
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useState } from 'react';
-import { Text, View } from 'react-native';
 import { Alert } from '@/lib/alert';
-import { Body, Button, Card, Chip, Field, Row, Screen, Subtitle, fmtNum } from '@/components/ui';
-import { deleteProfile, listProfiles, resetWorkoutHistory, updateProfile } from '@/db/queries';
+import { Body, Button, Card, Chip, Row, Screen, Subtitle } from '@/components/ui';
+import { deleteProfile, listProfiles, resetWorkoutHistory } from '@/db/queries';
 import { makeBackup, makePlanFile } from '@/lib/backup';
 import type { Part } from '@/lib/planText';
 import { todayKey } from '@/lib/dates';
@@ -15,7 +13,7 @@ import { WorkoutReminderCard } from '@/components/WorkoutReminderCard';
 import { MeasuresSection } from '@/components/MeasuresSection';
 import { WaterGoalCard } from '@/components/WaterGoalCard';
 import { useTheme } from '@/components/ThemeProvider';
-import { fmtHeightM, parseHeightCm } from '@/lib/format';
+import { ProfileInfoCard } from '@/components/ProfileInfoCard';
 
 export default function ProfileTab() {
   const { colors } = useTheme();
@@ -24,20 +22,7 @@ export default function ProfileTab() {
   const switchTo = useApp((s) => s.switchTo);
   const loadActive = useApp((s) => s.loadActive);
   const [profiles] = useData((db) => listProfiles(db));
-  const [name, setName] = useState(profile.name);
-  const [height, setHeight] = useState(fmtNum(profile.height_cm));
   const { plan } = profile;
-
-  const [editing, setEditing] = useState(false);
-  const [seen, setSeen] = useState({ id: profile.id, name: profile.name, height: profile.height_cm });
-  if (seen.id !== profile.id || seen.name !== profile.name || seen.height !== profile.height_cm) {
-    setSeen({ id: profile.id, name: profile.name, height: profile.height_cm });
-    setName(profile.name);
-    setHeight(fmtNum(profile.height_cm));
-    if (seen.id !== profile.id) setEditing(false);
-  }
-
-  const dirty = name.trim() !== profile.name || parseHeightCm(height) !== profile.height_cm;
 
   const run = (fn: () => Promise<unknown>) => async () => {
     try {
@@ -46,19 +31,6 @@ export default function ProfileTab() {
       Alert.alert('Ops', (e as Error).message);
     }
   };
-
-  const cancelEdit = () => {
-    setName(profile.name);
-    setHeight(fmtNum(profile.height_cm));
-    setEditing(false);
-  };
-
-  const saveInfo = run(async () => {
-    if (!name.trim()) throw new Error('O nome não pode ficar vazio.');
-    await updateProfile(db, profile.id, name.trim(), parseHeightCm(height));
-    await loadActive(db);
-    setEditing(false);
-  });
 
   const exportPart = (part: Part) =>
     run(() => shareJson(`${part}-${safeFileName(profile.name)}.json`, makePlanFile(plan, part)));
@@ -117,33 +89,7 @@ export default function ProfileTab() {
         </Card>
       )}
 
-      <Card>
-        <Row style={{ justifyContent: 'space-between' }}>
-          <Subtitle>Dados</Subtitle>
-          {!editing && <Button small variant="ghost" icon="create-outline" label="Editar" onPress={() => setEditing(true)} />}
-        </Row>
-        {editing ? (
-          <>
-            <Row>
-              <Field flex label="Nome" value={name} onChangeText={setName} autoFocus />
-              <Field flex label="Altura (cm)" value={height} onChangeText={setHeight} keyboardType="decimal-pad" />
-            </Row>
-            <Row style={{ marginTop: 4 }}>
-              <Button small variant="ghost" label="Cancelar" onPress={cancelEdit} style={{ flex: 1 }} />
-              <Button small label="Salvar" icon="checkmark" onPress={saveInfo} disabled={!dirty} style={{ flex: 1 }} />
-            </Row>
-          </>
-        ) : (
-          <View style={{ gap: 2 }}>
-            <InfoRow label="Nome" value={profile.name} />
-            <InfoRow
-              label="Altura"
-              value={profile.height_cm ? fmtHeightM(profile.height_cm) : 'Não informada'}
-              muted={!profile.height_cm}
-            />
-          </View>
-        )}
-      </Card>
+      <ProfileInfoCard />
 
       <MeasuresSection />
 
@@ -216,15 +162,5 @@ function PartCard({ part, title, summary, onShare }: { part: Part; title: string
         <Button small variant="ghost" label="Enviar" icon="share-outline" onPress={onShare} style={{ flex: 1 }} />
       </Row>
     </Card>
-  );
-}
-
-function InfoRow({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
-  const { colors } = useTheme();
-  return (
-    <Row style={{ justifyContent: 'space-between', paddingVertical: 6 }}>
-      <Text style={{ fontSize: 14, color: colors.muted }}>{label}</Text>
-      <Text style={{ fontSize: 15, fontWeight: '600', color: muted ? colors.muted : colors.text }}>{value}</Text>
-    </Row>
   );
 }
