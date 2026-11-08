@@ -267,7 +267,7 @@ export default function Today() {
                 : `Faz ${measureAge} dias desde a última medida. Hora de pesar e medir a cintura!`}
             </Body>
           </Row>
-          <Button small variant="ghost" label="Registrar medidas" onPress={() => router.navigate('/progress')} />
+          <Button small variant="ghost" label="Registrar medidas" onPress={() => router.navigate('/profile')} />
         </Card>
       )}
     </Screen>

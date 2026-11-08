@@ -12,6 +12,8 @@ import { safeFileName, shareJson } from '@/lib/files';
 import { useApp, useData, useProfile } from '@/store/useApp';
 import { ThemePicker } from '@/components/ThemePicker';
 import { WorkoutReminderCard } from '@/components/WorkoutReminderCard';
+import { MeasuresSection } from '@/components/MeasuresSection';
+import { WaterGoalCard } from '@/components/WaterGoalCard';
 import { useTheme } from '@/components/ThemeProvider';
 import { fmtHeightM, parseHeightCm } from '@/lib/format';
 
@@ -143,6 +145,8 @@ export default function ProfileTab() {
         )}
       </Card>
 
+      <MeasuresSection />
+
       <PartCard
         part="treino"
         title="Treino"
@@ -158,6 +162,8 @@ export default function ProfileTab() {
         }`}
         onShare={exportPart('dieta')}
       />
+
+      <WaterGoalCard />
 
       <ThemePicker />
 

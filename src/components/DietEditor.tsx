@@ -14,13 +14,6 @@ export function DietEditor({ value, onChange }: Props) {
     <>
       <Card>
         <Subtitle>Metas do dia</Subtitle>
-        <Field
-          label="Água (litros)"
-          value={value.water}
-          onChangeText={(water) => set({ water })}
-          keyboardType="decimal-pad"
-          placeholder="2"
-        />
         <Row>
           <Field
             flex
@@ -28,7 +21,7 @@ export function DietEditor({ value, onChange }: Props) {
             value={value.kcalMin}
             onChangeText={(kcalMin) => set({ kcalMin })}
             keyboardType="number-pad"
-            placeholder="1600"
+            placeholder="Ex.: 1600"
           />
           <Field
             flex
@@ -36,7 +29,7 @@ export function DietEditor({ value, onChange }: Props) {
             value={value.kcalMax}
             onChangeText={(kcalMax) => set({ kcalMax })}
             keyboardType="number-pad"
-            placeholder="1800"
+            placeholder="Ex.: 1800"
           />
         </Row>
         <Row>
@@ -46,7 +39,7 @@ export function DietEditor({ value, onChange }: Props) {
             value={value.proteinMin}
             onChangeText={(proteinMin) => set({ proteinMin })}
             keyboardType="number-pad"
-            placeholder="100"
+            placeholder="Ex.: 100"
           />
           <Field
             flex
@@ -54,7 +47,7 @@ export function DietEditor({ value, onChange }: Props) {
             value={value.proteinMax}
             onChangeText={(proteinMax) => set({ proteinMax })}
             keyboardType="number-pad"
-            placeholder="120"
+            placeholder="Ex.: 120"
           />
         </Row>
         <Body muted style={{ fontSize: 12 }}>
