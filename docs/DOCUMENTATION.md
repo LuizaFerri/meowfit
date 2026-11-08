@@ -381,7 +381,7 @@ Na importação:
   - No dia em que a meta é batida, os lembretes daquele dia são cancelados.
   - Se o app ficar mais de 7 dias sem ser aberto, os lembretes param até a próxima abertura.
 - **Medidas:** o app avisa quando a última medida tem 14 dias ou mais.
-- **IMC** (`src/lib/bmi.ts` e `src/components/BmiCard.tsx`): usa o peso mais recente e a altura do perfil. A classificação segue a OMS:
+- **IMC** (`src/lib/bmi.ts` e `src/components/BmiCard.tsx`): usa o peso mais recente e a altura do perfil. A altura é guardada em cm, mas pode ser digitada em cm ("160") ou em metros ("1,60"): valores abaixo de 3 são convertidos (`parseHeightCm`/`normalizeHeightCm` em `src/lib/format.ts`). Alturas antigas salvas em metros são corrigidas ao ler o perfil. Ela aparece como "1,60 m" (`fmtHeightM`). A classificação segue a OMS:
 
   | IMC | Classificação |
   |---|---|
