@@ -26,16 +26,16 @@ MeowFit é um app Android, feito com React Native e Expo, para acompanhar treino
 
 | Tela | Rota | O que faz |
 |---|---|---|
-| Hoje | `/` | Treino do dia, bolinhas da semana, água, refeições e aviso de medidas atrasadas |
+| Hoje | `/` | Sequência de treinos (foguinho), treino do dia, bolinhas da semana (tocar num dia abre o treino dele: o treino feito naquele dia, o treino de hoje ou o do dia da semana no plano. Dias que já passaram abrem só para ver; dias futuros abrem para treinar hoje. Dias de descanso não são clicáveis e têm o número mais claro), água, refeições e aviso de medidas atrasadas |
 | Treino | `/workout` | Lista os dias do plano, a evolução das cargas e os últimos treinos |
-| Sessão de treino | `/workout/[day]` | Marca exercícios e anota carga e repetições de cada série |
+| Sessão de treino | `/workout/[day]` | Marca exercícios e anota carga e repetições de cada série. Grava sempre na data de hoje. Com `?data=yyyy-MM-dd` (uma data passada, usada ao tocar num dia anterior da semana no "Hoje"), abre aquele dia **só para ver**: campos travados, sem "Concluir treino", sem timer de descanso e sem sugestão de carga, com o aviso de cadeado. Como no Duolingo, não dá para marcar treino para trás. Datas futuras ou inválidas são ignoradas (abre hoje) |
 | Evolução | `/exercise/[name]` | Gráfico da carga máxima por treino, com início, atual e recorde |
-| Dieta | `/diet` | Metas, água, escolha da opção em cada refeição e adesão da semana |
+| Dieta | `/diet` | Metas, água, escolha da opção em cada refeição e adesão da semana. Uma opção com vários alimentos aparece como lista (nome em negrito e quantidade ao lado), e, se for a única opção, o botão vira "Segui o cardápio" |
 | Histórico da dieta | `/diet-history` | Um cartão por dia com cada refeição: opção do plano, o que foi comido fora do plano ou "Não registrado", além da adesão e da água do dia. Mostra 30 dias por vez (`buildDietHistory` em `src/lib/diet.ts`) |
 | Progresso | `/progress` | Checklist semanal de treinos e hábitos, além de peso e cintura com gráficos |
-| Perfil | `/profile` | Nome e altura, treino e dieta ("Editar", "Colar texto", "Enviar"), tema, backup e "Apagar meus dados" (volta para as boas-vindas) |
+| Perfil | `/profile` | Nome e altura, treino e dieta ("Editar", "Colar texto", "Enviar"), tema, lembrete de treino (`WorkoutReminderCard`, só no Android), backup, "Zerar treinos e sequência" (`resetWorkoutHistory`: apaga `workout_done`, `exercise_done` e `set_logs`, ou seja, sequência, recorde, treinos concluídos e cargas; plano, dieta, água, refeições, hábitos e medidas continuam) e "Apagar meus dados" (volta para as boas-vindas) |
 | Boas-vindas | `/new-profile` | Aparece quando não há perfil. Abre numa tela de apresentação (`Welcome`: logo `logo-lilas` ou `logo-dark` conforme o tema, num círculo `#7E1DBE` igual nos dois temas; o que ele faz, "Criar meu cadastro" e "Já tenho um backup") e depois segue o cadastro em 3 etapas: você (nome, altura e peso), treino e dieta. Nas duas últimas, a pessoa escolhe entre "Item por item" (formulário) e "Colar texto", e pode pular. Também restaura um backup |
-| Editar plano | `/edit-plan` | `?parte=treino` ou `?parte=dieta` edita a parte com o `PartEditor`: "Item por item" ou "Colar texto". `&modo=texto` abre direto no texto, e `&novo=1` (aviso de troca de treino) grava `treinoSince` ao salvar |
+| Editar plano | `/edit-plan` | `?parte=treino` ou `?parte=dieta` edita a parte com o `PartEditor`: "Item por item" ou "Colar texto". O botão "Salvar treino"/"Salvar dieta" fica fixo no rodapé, sempre visível. `&modo=texto` abre direto no texto, e `&novo=1` (aviso de troca de treino) grava `treinoSince` ao salvar |
 | Importar | `/import` | `?parte=treino` ou `?parte=dieta` importa só aquela parte, por texto ou arquivo. Somando `&modo=editar`, edita a parte como texto. Com `?modo=arquivo`, restaura um backup no lugar dos dados atuais. Abrir um arquivo de treino ou dieta recebido também passa por aqui |
 
 ## 2. Stack
@@ -49,7 +49,7 @@ MeowFit é um app Android, feito com React Native e Expo, para acompanhar treino
 | Datas | date-fns (semana começando na segunda, locale pt-BR) |
 | Gráficos | react-native-svg (componente próprio `LineChart`) |
 | Arquivos | expo-document-picker, expo-file-system, expo-sharing, expo-clipboard |
-| Notificações | expo-notifications (só locais: água e fim do descanso) |
+| Notificações | expo-notifications (só locais: água, treino e fim do descanso) |
 | Ícones | @expo/vector-icons (Ionicons) |
 | Tema | contexto próprio (`ThemeProvider`), expo-system-ui |
 | Testes | jest + jest-expo |
@@ -78,7 +78,7 @@ src/
 
 Só o que fica em `src/app` vira rota. Componentes, hooks e utilitários ficam fora dessa pasta. Os nomes de arquivo e de rota são em inglês; os textos que aparecem para a pessoa usuária são em português.
 
-A pasta `design/` guarda as artes originais em alta resolução (`logo-dark.png`, `logo-lilas.png`, `header-light.png`, `header-dark.png`, `notification-bell.png`; as artes antigas continuam lá). O app não usa essas imagens direto: as versões otimizadas ficam em `assets/`.
+A pasta `design/` guarda as artes originais em alta resolução (`logo-dark.png`, `logo-lilas.png`, `header-light.png`, `header-dark.png`, `notification-bell.png`, `welcome-logo.png` e `splash-cats.gif`). As artes antigas foram removidas e continuam só no histórico do git. O app não usa essas imagens direto: as versões otimizadas ficam em `assets/`.
 
 ## 4. Arquitetura
 
@@ -144,7 +144,7 @@ Os campos de carga e repetições ficam em estado local. Eles são preenchidos u
 **Notificações** (plugin `expo-notifications` no `app.json`):
 - **Ícone pequeno** (`assets/notification-icon.png`): uma patinha branca em fundo transparente (96 px). O Android pinta esse ícone como silhueta, então ele não pode ser colorido. A cor de destaque é `#7044B8`.
 - **Sem ícone grande:** o Xiaomi/HyperOS já mostra o ícone do app à esquerda, e o ícone grande ficava repetido à direita, sempre alinhado ao topo (o Android não deixa centralizar sem layout próprio). Por isso o `largeIcon` saiu do plugin. A arte do sino (`design/notification-bell.png`) está guardada, mas ainda não é usada.
-- **Canais:** `water_alerts` (água) e `rest` (fim do descanso) têm importância alta, para aparecer como balão no topo da tela.
+- **Canais:** `water_alerts` (água), `workout_alerts` (lembrete de treino) e `rest` (fim do descanso) têm importância alta, para aparecer como balão no topo da tela.
   - O Android não deixa mudar a importância de um canal já criado. Para mudar, crie um canal com outro id e coloque o antigo em `LEGACY_CHANNELS` (`src/lib/notifications.ts`), que é apagado ao abrir o app. Foi o que aconteceu com o `water`, que era de importância padrão.
   - Em alguns celulares (Xiaomi/HyperOS, por exemplo), o balão também depende de ativar "Notificações flutuantes" para o app nas configurações do Android.
 
@@ -253,11 +253,19 @@ Dormi 7 h ou mais
 **Dieta** (na importação de dieta, o texto já começa na seção de refeições, então o cabeçalho `Refeições:` é opcional):
 
 ```
-7:30, café da manhã
-Opção 1: 2 ovos e pão integral
-Opção 2: iogurte com aveia
+08:30 Café da manhã
+Omelete: 2 ovos (100 g) + 1 fatia de muçarela (20 g)
+Mamão: 1 fatia média (170 g)
 
-Almoço: frango e arroz | peixe e batata
+12:30 Almoço
+Arroz branco cozido: 2 colheres de sopa cheias (50 g)
+Batata inglesa cozida: 3 colheres de servir rasas (120 g)
+
+16:00 Lanche
+Opção 1: iogurte com aveia
+Opção 2: 1 banana com pasta de amendoim
+
+Jantar: frango e arroz | peixe e batata
 
 kcal: 1600-1750
 proteína: 100-110
@@ -274,7 +282,12 @@ Regras de leitura:
 - **Item simples:** `Nome: texto` sem séries vira um item com `note`.
 - **Marcadores ignorados:** `-`, `*`, `•`, `1.`, `[ ]`, `[x]`, `☐`, `☑` e `✓` no início da linha.
 - **Seções:** `Hábitos`, `Refeições` (ou `Dieta`/`Cardápio`), `Metas`, `Regras` (ou `Dicas`) e `Treinos`. Um cabeçalho de dia sempre volta para a seção de treinos.
-- **Refeição em várias linhas:** o nome fica numa linha e cada opção numa linha `Opção N: …` logo abaixo. Uma refeição sem nenhuma opção (por exemplo, `9:00 a 10:00, treino`) fica de fora e aparece nos avisos.
+- **Cardápio (formato do nutricionista):** numa linha o horário e o nome da refeição (`08:30 Café da manhã`) e, embaixo, um alimento por linha com a quantidade (`Batata inglesa cozida: 3 colheres de servir rasas (120 g)`). Os alimentos ficam juntos numa única opção, um por linha (separados por `\n` no texto da opção). Linhas em branco entre o cabeçalho e os alimentos são aceitas.
+  - **Onde começa uma refeição** (`startsMeal` em `src/lib/planText.ts`): linha com horário no começo (`08:30 …`, `12:30, almoço`) ou no fim (`Pré-treino (17:30)`, `Pós-treino - 19h`); linha cujo nome é de refeição (`isMealName`: café da manhã/tarde/noite, "café" sozinho, desjejum, colação, almoço, lanche, merenda, jantar, janta, ceia, pré-treino, pós-treino, refeição, brunch); ou linha sem `:` logo depois de uma linha em branco. Qualquer outra linha debaixo de uma refeição aberta é um alimento. "Café coado: 1 xícara" é alimento, porque só "café" sozinho ou "café da …" contam como refeição.
+  - **Alternativas:** `Opção N: …` abre uma opção nova; linhas de alimento depois dela entram nessa opção. Refeições numa linha só (`Almoço: frango | peixe`) continuam funcionando e não abrem lista.
+  - **Volta para texto** (`planToText`): se alguma refeição tiver lista de alimentos, todas são escritas em blocos (cabeçalho sem `:` precedido de linha em branco, alimentos ou `Opção N:` embaixo), para não confundir uma refeição de uma linha com um alimento.
+  - Uma refeição sem nenhuma opção ou alimento (por exemplo, `9:00 a 10:00, treino`) fica de fora e aparece nos avisos.
+  - A ajuda "Como escrever?" e o exemplo (`src/lib/planHelp.ts`) explicam esse formato; um teste garante que o exemplo é lido como mostrado.
 - **Horário da refeição:** um horário no começo da linha (`7:30, café da manhã`, `12:30 a 13:00, almoço`, `19h30 - 20h, jantar`) vai para `Meal.time` e aparece acima do nome na aba Dieta. O nome é salvo com a primeira letra maiúscula, e o ponto final das opções é removido.
 - **Metas dentro das refeições:** linhas começando com `kcal:`, `calorias:`, `proteína:` ou `água:` viram metas mesmo sem o cabeçalho `Metas:`.
 - Um exercício que aparece antes de qualquer dia é ignorado e listado em `warnings` com o número da linha.
@@ -326,7 +339,7 @@ Na importação:
 - **Item por item ou texto** (`src/components/PartEditor.tsx`): os dois modos editam o mesmo rascunho. No texto, cada mudança é lida com `parsePlanText` e vira rascunho na hora, e um resumo acima da caixa mostra quantos dias, exercícios ou refeições foram reconhecidos. Se o texto também tiver a outra parte (ex.: plano inteiro colado no treino), a tela avisa; no cadastro (`fillOther`), essa outra parte já preenche a etapa seguinte, desde que ela esteja vazia. Ao trocar para o texto, o rascunho atual é escrito com `planToText`. Assim dá pra colar o texto e conferir ou ajustar item por item. A ajuda e os exemplos do formato ficam em `src/lib/planHelp.ts`. Ao salvar, o texto substitui a parte inteira, como no formulário.
 - **Plano de exemplo** (`src/data/examplePlan.ts`): genérico e curto, só para mostrar como funciona. Aparece como "Começar com um exemplo" no cadastro e na edição, quando a parte está vazia.
 - **Treino de hoje** (`pickToday`): primeiro procura o dia com o `weekday` de hoje. Se não houver, e o plano tiver treinos em rodízio, pega o treino seguinte ao último concluído. Se nenhum dos dois casos se aplicar, é dia de descanso.
-- **Conclusão do treino:** concluir o treino grava `workout_done` para a data, e isso marca o treino no checklist semanal. Um exercício com carga é marcado como feito automaticamente quando todas as séries têm peso.
+- **Conclusão do treino:** concluir o treino grava `workout_done` para a data, e isso marca o treino no checklist semanal e soma na sequência. Um exercício é marcado como feito quando as repetições da última série são anotadas (veja o timer de descanso) ou ao tocar no número dele. Quando o último exercício pendente fica feito, o app pergunta "Treino completo! 🎉 Concluir e somar na sequência?" ("Agora não" / "Concluir"). `workout_done` tem um registro por dia: concluir um treino num dia em que havia caminhada troca a caminhada pelo treino.
 - **Carga anterior:** é a última data **anterior a hoje** em que o exercício teve carga anotada (`getPreviousSets`). Ela aparece como placeholder e pode ser copiada pelo botão "Repetir".
 - **Checklist semanal:** a semana vai de segunda a domingo. Nenhum registro é apagado; uma semana nova simplesmente começa vazia.
 - **Adesão à dieta** (`src/lib/diet.ts`): refeições no plano (opção ≥ 0) divididas pelas refeições **esperadas** até agora. O card da aba Dieta mostra o dia (`dailyAdherence`) e, numa linha menor, a semana (`weeklyAdherence`).
@@ -339,11 +352,22 @@ Na importação:
   - A duração (60 s, 90 s ou 2 min) fica salva em `settings` com a chave `rest`.
   - O timer guarda a hora de término, então continua certo se o app for para segundo plano. Ao terminar, o celular vibra e aparece um aviso no centro da tela (`RestFinished`), nas cores do tema e com o botão "Bora!". O aviso fecha sozinho em 5 s, ao tocar no botão ou ao tocar fora. Com o app fechado ou a tela bloqueada, chega uma notificação.
   - O exercício é marcado como feito quando as repetições da **última série** são anotadas. Também dá pra marcar tocando no número do exercício.
-- **Regra das duas faltas** (`missedStreak` em `src/lib/workout.ts`):
-  - Dias de treino são os dias da semana do plano. Em planos de rodízio, são de segunda a sexta. **Sábado e domingo nunca contam como falta.**
-  - O app conta os dias de treino seguidos, até ontem, sem treino concluído. Qualquer treino concluído, inclusive no fim de semana, zera a contagem.
-  - Só entram dias a partir do primeiro treino concluído do perfil.
-  - O aviso aparece no "Hoje" quando hoje é dia de treino e o treino ainda não foi feito.
+- **Sequência de treinos (foguinho) e regra das duas faltas** (`computeStreak` em `src/lib/streak.ts`, card `StreakCard` no "Hoje" e nos widgets). É a única regra de falta do app (o antigo `missedStreak`, que ignorava o fim de semana, saiu):
+  - **Cada dia soma no máximo 1**, como no Duolingo: a sequência conta dias com atividade, não atividades. Caminhada e treino no mesmo dia valem 1 (o treino substitui a caminhada no registro do dia).
+  - **Plano com dias fixos:** conta os dias com treino concluído. Cada treino num dia escolhido soma 1, e um treino ou caminhada num dia de descanso também soma 1 (dia extra). Dias de descanso sem nada não contam nem quebram. Valem os dias escolhidos no plano, inclusive sábado e domingo.
+  - **Plano sem dia fixo (rodízio):** conta semanas (segunda a domingo). A meta da semana é o número de treinos do plano (até 7). Cada semana em que bateu a meta soma 1.
+  - **Uma falta perdoada:** um dia de treino (ou uma semana) sem treino não quebra a sequência, só a deixa em risco. Duas faltas seguidas zeram. Um treino concluído limpa a falta pendente. `misses` guarda as faltas seguidas.
+  - Hoje (ou a semana atual) só conta como falta depois que acaba.
+  - Não há registro retroativo: treinos só podem ser marcados no próprio dia, então a sequência não pode ser "consertada" depois.
+  - Estados: `feito` (chama cheia), `descanso` (chama cheia se há sequência), `pendente` (chama vazada), `risco` (uma falta; chama cinza e "hoje não pode faltar!") e `zerada` (duas faltas seguidas; chama cinza e a dica do mínimo viável: "só os 3 primeiros exercícios, uns 30 minutos").
+  - **Histórico dos dias de treino:** `settings` com a chave `schedule:<id>` guarda `[{ since, weekdays }]`. `recordSchedule` (`src/db/queries.ts`), chamado por `createProfile` e `savePlan`, acrescenta um item quando os dias fixos mudam (`nextSchedule`). O primeiro item usa `since: '0000-01-01'` com os dias de antes da troca, então perfis antigos também ficam certos na primeira troca. Para cada data, a sequência usa os dias válidos naquela época: trocar segunda/quarta/sexta por terça/quinta não transforma as terças e quintas antigas em faltas. O histórico entra no backup (campo opcional `schedule`). Atenção: `getSetting` mescla objetos, então listas são lidas direto (`getSchedule`).
+  - O recorde é a maior sequência do histórico, recalculada a cada vez a partir de todas as datas de `workout_done` (`getWorkoutDates`).
+  - **Comemoração** (`src/lib/celebrate.ts`): ao concluir um treino ou registrar a caminhada, se a sequência cresceu, aparece "🔥 N treinos na sequência!", com "Novo recorde!" quando passa o recorde anterior.
+- **Caminhada no dia de descanso:** no "Hoje", o dia de descanso tem o botão "Fiz uma caminhada". Ele grava `workout_done` com o rótulo `WALK_LABEL` ("Caminhada", em `src/lib/workout.ts`), que conta como dia extra na sequência. A caminhada não é treino: não entra no "x de y treinos", no checklist da aba Progresso, no rodízio (`getLastWorkout` a ignora) nem no "Treino concluído" da sessão. Pode ser desfeita no mesmo dia. Em plano de rodízio não há dia de descanso, então o botão não aparece.
+- **Lembrete de treino** (`src/lib/workoutReminder.ts` e `syncWorkoutReminders` em `src/lib/notifications.ts`): ligado no Perfil, por perfil (`settings`, chave `workout_reminder:<id>`, padrão desligado às 18h).
+  - Agenda os próximos 7 dias de treino (dias fixos) no horário escolhido, pulando hoje se o treino já foi feito. Em rodízio, avisa todo dia até a meta da semana ser batida.
+  - O aviso de hoje muda com a sequência: `risco` → "Hoje não pode faltar! 🔥"; `zerada` → "Volte hoje! 🔥". Nos outros casos, "Hora do treino! 🐾" com o nome do treino.
+  - Reagenda sozinho ao abrir o app e sempre que os dados mudam (`rev`, com 1,5 s de espera, em `_layout.tsx`).
 - **Sugestão de subir carga** (`suggestIncrease` em `src/lib/progression.ts`):
   - Aparece quando, nos 2 últimos treinos do exercício, todas as séries tiveram a **mesma carga** e pelo menos as repetições pedidas. Repetição em branco conta como cumprida.
   - O aumento sugerido é +1 kg para cargas abaixo de 10 kg e +2,5 kg para as demais.
@@ -421,12 +445,12 @@ Três widgets de tela inicial, feitos com [react-native-android-widget](https://
 
 | Widget | Nome interno | Tamanho | Mostra | Toque |
 |---|---|---|---|---|
-| MeowFit · Hoje | `Today` | 4×2 | Data, treino do dia com barra de progresso, água e refeições no plano | Abre a sessão de treino do dia (ou o app, no descanso) |
-| MeowFit · Semana | `Week` | 4×1 | S T Q Q S S D com os dias treinados, contador de treinos e aviso da regra das duas faltas | Abre a aba Progresso |
+| MeowFit · Hoje | `Today` | 4×2 | Foguinho com a sequência ao lado da data, treino do dia com barra de progresso (no descanso, "Caminhada feita ✓" se registrada), água e refeições no plano | Abre a sessão de treino do dia (ou o app, no descanso) |
+| MeowFit · Semana | `Week` | 4×1 | S T Q Q S S D com os dias treinados, foguinho com a sequência à direita ("seguidos" ou "semanas") e, embaixo, o aviso da sequência ("Hoje não pode faltar!" no `risco`, "Volte hoje! Recomece a sequência" na `zerada`) ou "x/y treinos nesta semana". O foguinho é um SVG (`flameSvg` em `components.tsx`): cheio, vazado ou cinza, como no app. Sem treino no plano, volta ao contador "x/y treinos" | Abre a aba Progresso |
 | MeowFit · Água | `Water` | 2×1 | Água do dia e botão **+250** | O botão registra a água sem abrir o app. O resto abre o app |
 
 **Arquivos** (`src/widgets/`):
-- `data.ts`: `loadWidgetData(db)` lê o banco e monta os números, com as mesmas regras do app (`pickToday`, `missedStreak`, refeições no plano). Não depende da biblioteca e é testado com SQLite real.
+- `data.ts`: `loadWidgetData(db)` lê o banco e monta os números, com as mesmas regras do app (`pickToday`, `computeStreak` com o histórico de dias, refeições no plano). Não depende da biblioteca e é testado com SQLite real.
 - `components.tsx`: o visual, com `FlexWidget` e `TextWidget`. As cores vêm das paletas `lilac` e `dark`.
 - `render.tsx`: escolhe a paleta pelo tema do app. No modo `sistema`, entrega as duas versões e o Android escolhe. Também atualiza os widgets (`updateAllWidgets`).
 - `handler.tsx`: chamado pelo Android quando um widget é adicionado, atualizado ou tocado. Trata o `ADD_WATER` e, a cada chamada, atualiza também os outros widgets.
@@ -467,7 +491,7 @@ Como instalar um app no iPhone sem a conta paga da Apple não é possível, o ap
 | Salvar ao sair do campo | `onBlur` além de `onEndEditing` (séries e texto da refeição), só na web |
 | Exportar backup ou plano | Compartilhamento do sistema (`navigator.share`) ou download do arquivo (`src/lib/files.ts`) |
 | Importar arquivo | Lido direto do arquivo escolhido no navegador |
-| Notificações (água e descanso) | Desligadas (`notificationsAvailable`) e o sino do card de Água fica oculto |
+| Notificações (água, treino e descanso) | Desligadas (`notificationsAvailable`): o sino do card de Água e o card "Lembrete de treino" do Perfil ficam ocultos |
 | Widgets e barra de navegação | Não existem |
 | Banco | expo-sqlite com WebAssembly e o armazenamento do navegador. O app pede armazenamento persistente (`navigator.storage.persist`). Os dados ficam só naquele navegador ou PWA, separados do app Android |
 
