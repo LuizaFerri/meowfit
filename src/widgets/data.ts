@@ -1,7 +1,7 @@
 import { addDays, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { SQLiteDatabase } from 'expo-sqlite';
-import type { ThemeMode } from '@/components/theme';
+import { DEFAULT_THEME_MODE, type ThemeMode } from '@/components/theme';
 import {
   exKey,
   getActiveProfileId,
@@ -41,7 +41,7 @@ const LETTERS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 const DOW = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export async function loadWidgetData(db: SQLiteDatabase, now = new Date()): Promise<WidgetData> {
-  const { mode } = await getSetting(db, 'theme', { mode: 'sistema' as ThemeMode });
+  const { mode } = await getSetting(db, 'theme', { mode: DEFAULT_THEME_MODE });
   const dateLabel = `${DOW[now.getDay()]}, ${format(now, 'd MMM', { locale: ptBR }).replace('.', '')}`;
   const days = weekDays(now);
   const empty: WidgetData = {

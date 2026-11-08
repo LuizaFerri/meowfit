@@ -3,7 +3,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Easing, StyleSheet, Text, View } from 'react-native';
 import { useApp } from '@/store/useApp';
-import { useTheme } from './ThemeProvider';
 
 export const SPLASH_LILAC = '#EFDFFC';
 const MIN_VISIBLE_MS = 2200;
@@ -14,7 +13,6 @@ const CROP_TOP = Math.round((GIF_WIDTH * 92) / GIF_SOURCE_SIZE);
 const CROP_HEIGHT = Math.round((GIF_WIDTH * (440 - 92)) / GIF_SOURCE_SIZE);
 
 export function AnimatedSplash() {
-  const { colors, isDark } = useTheme();
   const loaded = useApp((s) => s.loaded);
   const [done, setDone] = useState(false);
   const [minTimePassed, setMinTimePassed] = useState(false);
@@ -46,13 +44,12 @@ export function AnimatedSplash() {
 
   if (done) return null;
 
-  const bg = isDark ? colors.bg : SPLASH_LILAC;
   const scale = pop.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] });
 
   return (
-    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.wrap, { backgroundColor: bg, opacity }]}>
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.wrap, { backgroundColor: SPLASH_LILAC, opacity }]}>
       <Animated.View style={{ alignItems: 'center', gap: 14, opacity: pop, transform: [{ scale }] }}>
-        <View style={{ width: GIF_WIDTH, height: CROP_HEIGHT, overflow: 'hidden', borderRadius: isDark ? 28 : 0, backgroundColor: SPLASH_LILAC }}>
+        <View style={{ width: GIF_WIDTH, height: CROP_HEIGHT, overflow: 'hidden' }}>
           <Image
             source={require('../../assets/splash-cats.gif')}
             style={{ position: 'absolute', top: -CROP_TOP, width: GIF_WIDTH, height: GIF_WIDTH }}
@@ -62,8 +59,8 @@ export function AnimatedSplash() {
             accessibilityLabel="Os gatos do MeowFit se alongando"
           />
         </View>
-        <Text style={{ fontSize: 30, fontWeight: '800', color: isDark ? colors.text : '#3B1A5E' }}>MeowFit</Text>
-        <Text style={{ fontSize: 15, color: isDark ? colors.muted : '#76658F' }}>Alongando as patinhas…</Text>
+        <Text style={{ fontSize: 30, fontWeight: '800', color: '#3B1A5E' }}>MeowFit</Text>
+        <Text style={{ fontSize: 15, color: '#76658F' }}>Alongando as patinhas…</Text>
       </Animated.View>
     </Animated.View>
   );

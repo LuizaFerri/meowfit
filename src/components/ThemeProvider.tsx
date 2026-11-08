@@ -2,7 +2,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 import { getSetting, setSetting } from '@/db/queries';
-import { dark, lilac, type Palette, type ThemeMode } from './theme';
+import { DEFAULT_THEME_MODE, dark, lilac, type Palette, type ThemeMode } from './theme';
 import { makeStyles, type Styles } from './styles';
 
 type Theme = {
@@ -19,17 +19,17 @@ const ThemeContext = createContext<Theme>({
   colors: lilac,
   s: STYLES.light,
   isDark: false,
-  mode: 'sistema',
+  mode: DEFAULT_THEME_MODE,
   setMode: () => {},
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const db = useSQLiteContext();
   const system = useColorScheme();
-  const [mode, setModeState] = useState<ThemeMode>('sistema');
+  const [mode, setModeState] = useState<ThemeMode>(DEFAULT_THEME_MODE);
 
   useEffect(() => {
-    getSetting(db, 'theme', { mode: 'sistema' as ThemeMode }).then((t) => setModeState(t.mode));
+    getSetting(db, 'theme', { mode: DEFAULT_THEME_MODE }).then((t) => setModeState(t.mode));
   }, [db]);
 
   const value = useMemo<Theme>(() => {

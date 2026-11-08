@@ -2,7 +2,7 @@
   "expo": {
     "name": "MeowFit",
     "slug": "meowfit",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "scheme": "meowfit",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -54,11 +54,7 @@
           "image": "./assets/logo-lilas.png",
           "imageWidth": 240,
           "resizeMode": "contain",
-          "backgroundColor": "#EFDFFC",
-          "dark": {
-            "image": "./assets/logo-dark.png",
-            "backgroundColor": "#16121E"
-          }
+          "backgroundColor": "#EFDFFC"
         }
       ],
       [
