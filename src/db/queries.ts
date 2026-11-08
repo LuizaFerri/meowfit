@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { format } from 'date-fns';
+import { normalizeHeightCm } from '@/lib/format';
 import { normalize } from '@/lib/planText';
 import { nextSchedule, type ScheduleEntry } from '@/lib/streak';
 import { WALK_LABEL } from '@/lib/workout';
@@ -11,7 +12,7 @@ type ProfileRow = { id: number; name: string; height_cm: number | null; plan_jso
 const toProfile = (r: ProfileRow): Profile => ({
   id: r.id,
   name: r.name,
-  height_cm: r.height_cm,
+  height_cm: normalizeHeightCm(r.height_cm),
   plan: JSON.parse(r.plan_json),
 });
 

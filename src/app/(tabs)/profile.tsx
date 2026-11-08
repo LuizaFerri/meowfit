@@ -3,7 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Alert } from '@/lib/alert';
-import { Body, Button, Card, Chip, Field, Row, Screen, Subtitle, fmtNum, parseNum } from '@/components/ui';
+import { Body, Button, Card, Chip, Field, Row, Screen, Subtitle, fmtNum } from '@/components/ui';
 import { deleteProfile, listProfiles, resetWorkoutHistory, updateProfile } from '@/db/queries';
 import { makeBackup, makePlanFile } from '@/lib/backup';
 import type { Part } from '@/lib/planText';
@@ -13,6 +13,7 @@ import { useApp, useData, useProfile } from '@/store/useApp';
 import { ThemePicker } from '@/components/ThemePicker';
 import { WorkoutReminderCard } from '@/components/WorkoutReminderCard';
 import { useTheme } from '@/components/ThemeProvider';
+import { fmtHeightM, parseHeightCm } from '@/lib/format';
 
 export default function ProfileTab() {
   const { colors } = useTheme();
@@ -34,7 +35,7 @@ export default function ProfileTab() {
     if (seen.id !== profile.id) setEditing(false);
   }
 
-  const dirty = name.trim() !== profile.name || parseNum(height) !== profile.height_cm;
+  const dirty = name.trim() !== profile.name || parseHeightCm(height) !== profile.height_cm;
 
   const run = (fn: () => Promise<unknown>) => async () => {
     try {
@@ -52,7 +53,7 @@ export default function ProfileTab() {
 
   const saveInfo = run(async () => {
     if (!name.trim()) throw new Error('O nome não pode ficar vazio.');
-    await updateProfile(db, profile.id, name.trim(), parseNum(height));
+    await updateProfile(db, profile.id, name.trim(), parseHeightCm(height));
     await loadActive(db);
     setEditing(false);
   });
@@ -135,7 +136,7 @@ export default function ProfileTab() {
             <InfoRow label="Nome" value={profile.name} />
             <InfoRow
               label="Altura"
-              value={profile.height_cm ? `${fmtNum(profile.height_cm / 100)} m` : 'Não informada'}
+              value={profile.height_cm ? fmtHeightM(profile.height_cm) : 'Não informada'}
               muted={!profile.height_cm}
             />
           </View>

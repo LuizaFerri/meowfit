@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, View } from 'react-native';
 import { PartEditor, type EditMode } from '@/components/PartEditor';
 import { Welcome } from '@/components/Welcome';
 import { Body, Button, Card, Field, Row, Screen, parseNum } from '@/components/ui';
+import { parseHeightCm } from '@/lib/format';
 import { useTheme } from '@/components/ThemeProvider';
 import { addMeasurement, createProfile } from '@/db/queries';
 import { Alert } from '@/lib/alert';
@@ -41,7 +42,7 @@ export default function NewProfile() {
     try {
       const base = { ...emptyPlan(), ...fromWorkoutDraft(workout), ...fromDietDraft(diet) };
       const plan = base.days.length > 0 ? stampTreino(base, todayKey()) : base;
-      const id = await createProfile(db, name.trim(), parseNum(height), plan);
+      const id = await createProfile(db, name.trim(), parseHeightCm(height), plan);
       const kg = parseNum(weight);
       if (kg !== null && kg > 0) await addMeasurement(db, id, todayKey(), kg, null);
       await switchTo(db, id);
@@ -65,7 +66,7 @@ export default function NewProfile() {
           : await createProfile(
               db,
               name.trim() || 'Meu perfil',
-              parseNum(height),
+              parseHeightCm(height),
               parsed.plan.treinoSince ? parsed.plan : stampTreino(parsed.plan, todayKey()),
             );
       await switchTo(db, id);

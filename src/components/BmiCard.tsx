@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { fmtHeightM } from '@/lib/format';
 import { Text, View } from 'react-native';
 import { BMI_LEVELS, bmi, classifyBmi, healthyRange, type BmiLevel } from '@/lib/bmi';
 import { radius, type Palette } from './theme';
@@ -57,7 +58,7 @@ export function BmiCard({ weightKg, heightCm }: { weightKg: number | null; heigh
       <Row style={{ alignItems: 'baseline' }}>
         <Text style={{ fontSize: 32, fontWeight: '700', color }}>{fmtNum(value)}</Text>
         <Body muted>
-          {fmtNum(weightKg)} kg · {fmtNum(heightCm / 100)} m
+          {fmtNum(weightKg)} kg · {fmtHeightM(heightCm)}
         </Body>
       </Row>
 
@@ -94,7 +95,7 @@ export function BmiCard({ weightKg, heightCm }: { weightKg: number | null; heigh
       </View>
 
       <Body>
-        Peso saudável para {fmtNum(heightCm / 100)} m: <Text style={{ fontWeight: '700' }}>{fmtNum(low)} a {fmtNum(high)} kg</Text>
+        Peso saudável para {fmtHeightM(heightCm)}: <Text style={{ fontWeight: '700' }}>{fmtNum(low)} a {fmtNum(high)} kg</Text>
       </Body>
       {toHealthy > 0 && (
         <Body muted style={{ fontSize: 14 }}>
