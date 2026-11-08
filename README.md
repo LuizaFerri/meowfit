@@ -1,3 +1,5 @@
+
+<img src="https://github.com/LuizaFerri/meowfit/blob/main/assets/header.jpg" />
 # MeowFit
 
 App Android para acompanhar treino, cargas, dieta e medidas. Funciona offline: os dados ficam só no celular (SQLite) e não há backend. Dá para ter vários perfis no mesmo aparelho.
