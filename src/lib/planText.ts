@@ -26,7 +26,7 @@ export function normalize(s: string): string {
     .trim();
 }
 
-function slug(s: string): string {
+export function slug(s: string): string {
   return normalize(s)
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');

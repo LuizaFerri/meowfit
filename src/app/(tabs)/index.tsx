@@ -3,7 +3,7 @@ import { addDays } from 'date-fns';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Text, View } from 'react-native';
-import { Body, Button, Card, Chip, ProgressBar, Row, Screen, Subtitle, Title } from '@/components/ui';
+import { Body, Button, Card, Chip, ProgressBar, Row, Screen, Subtitle } from '@/components/ui';
 import { HeaderBanner } from '@/components/HeaderBanner';
 import { space } from '@/components/theme';
 import { WaterCard } from '@/components/WaterCard';
@@ -129,9 +129,9 @@ export default function Today() {
           </Row>
           <Button
             small
-            label="Importar treino novo"
-            icon="download-outline"
-            onPress={() => router.push({ pathname: '/import', params: { parte: 'treino' } })}
+            label="Montar treino novo"
+            icon="create-outline"
+            onPress={() => router.push({ pathname: '/edit-plan', params: { parte: 'treino', novo: '1' } })}
           />
           <Row>
             <Button
@@ -154,7 +154,7 @@ export default function Today() {
         {plan.days.length === 0 ? (
           <>
             <Body muted>Seu perfil ainda não tem treino.</Body>
-            <Button label="Importar treino" icon="download-outline" onPress={() => router.push('/import')} />
+            <Button label="Montar treino" icon="create-outline" onPress={() => router.push({ pathname: '/edit-plan', params: { parte: 'treino' } })} />
           </>
         ) : day ? (
           <>

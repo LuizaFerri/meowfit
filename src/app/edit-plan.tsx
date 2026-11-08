@@ -1,0 +1,62 @@
+import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useState } from 'react';
+import { KeyboardAvoidingView, Platform } from 'react-native';
+import { PartEditor } from '@/components/PartEditor';
+import { Button, Screen } from '@/components/ui';
+import { savePlan } from '@/db/queries';
+import { Alert } from '@/lib/alert';
+import { todayKey } from '@/lib/dates';
+import { fromDietDraft, fromWorkoutDraft, toDietDraft, toWorkoutDraft } from '@/lib/planForm';
+import type { Part } from '@/lib/planText';
+import { stampTreino } from '@/lib/workout';
+import { useApp, useProfile } from '@/store/useApp';
+
+export default function EditPlan() {
+  const params = useLocalSearchParams<{ parte?: Part; novo?: string; modo?: 'texto' }>();
+  const part: Part = params.parte === 'dieta' ? 'dieta' : 'treino';
+  const db = useSQLiteContext();
+  const profile = useProfile();
+  const loadActive = useApp((s) => s.loadActive);
+  const [workout, setWorkout] = useState(() => toWorkoutDraft(profile.plan));
+  const [diet, setDiet] = useState(() => toDietDraft(profile.plan));
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      const next = { ...profile.plan, ...(part === 'treino' ? fromWorkoutDraft(workout) : fromDietDraft(diet)) };
+      const started = part === 'treino' && next.days.length > 0 && (params.novo === '1' || profile.plan.days.length === 0);
+      await savePlan(db, profile.id, started ? stampTreino(next, todayKey()) : next);
+      await loadActive(db);
+      router.back();
+    } catch (e) {
+      Alert.alert('Não foi possível salvar', (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <Stack.Screen options={{ title: part === 'treino' ? 'Editar treino' : 'Editar dieta' }} />
+      <Screen>
+        <PartEditor
+          part={part}
+          workout={workout}
+          onWorkout={setWorkout}
+          diet={diet}
+          onDiet={setDiet}
+          initialMode={params.modo === 'texto' ? 'text' : 'form'}
+        />
+        <Button label="Salvar" icon="checkmark" onPress={save} disabled={busy} />
+        <Button
+          variant="ghost"
+          icon="folder-open-outline"
+          label="Abrir arquivo recebido"
+          onPress={() => router.replace({ pathname: '/import', params: { parte: part } })}
+        />
+      </Screen>
+    </KeyboardAvoidingView>
+  );
+}

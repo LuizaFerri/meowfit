@@ -189,7 +189,7 @@ export default function Workouts() {
     <Screen>
       {plan.days.length === 0 ? (
         <Empty icon="barbell-outline" text="Nenhum treino no plano ainda.">
-          <Button label="Importar treino" icon="download-outline" onPress={() => router.push('/import')} />
+          <Button label="Montar treino" icon="create-outline" onPress={() => router.push({ pathname: '/edit-plan', params: { parte: 'treino' } })} />
         </Empty>
       ) : (
         <>
@@ -274,9 +274,9 @@ export default function Workouts() {
         <Button
           small
           variant="ghost"
-          label="Importar treino"
-          icon="download-outline"
-          onPress={() => router.push({ pathname: '/import', params: { parte: 'treino' } })}
+          label="Colar texto"
+          icon="clipboard-outline"
+          onPress={() => router.push({ pathname: '/edit-plan', params: { parte: 'treino', modo: 'texto' } })}
           style={{ flex: 1 }}
         />
         <Button
@@ -284,7 +284,7 @@ export default function Workouts() {
           variant="ghost"
           label="Editar treino"
           icon="create-outline"
-          onPress={() => router.push({ pathname: '/import', params: { parte: 'treino', modo: 'editar' } })}
+          onPress={() => router.push({ pathname: '/edit-plan', params: { parte: 'treino' } })}
           style={{ flex: 1 }}
         />
       </Row>

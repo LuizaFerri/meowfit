@@ -184,3 +184,31 @@ export function Empty({ icon, text, children }: { icon: IconName; text: string; 
 export { fmtNum, parseNum } from '@/lib/format';
 
 export { useTheme } from './ThemeProvider';
+
+export function IconButton({
+  icon,
+  onPress,
+  label,
+  disabled,
+  color,
+}: {
+  icon: IconName;
+  onPress: () => void;
+  label: string;
+  disabled?: boolean;
+  color?: string;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      disabled={disabled}
+      hitSlop={6}
+      style={({ pressed }) => ({ padding: 6, opacity: disabled ? 0.3 : pressed ? 0.6 : 1 })}
+    >
+      <Ionicons name={icon} size={20} color={color ?? colors.muted} />
+    </Pressable>
+  );
+}

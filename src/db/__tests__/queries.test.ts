@@ -1,4 +1,4 @@
-import { samplePlan } from '@/data/samplePlan';
+import { fullPlan } from '@/test/fullPlan';
 import { makeBackup, parseJsonFile, restoreBackup } from '@/lib/backup';
 import * as q from '../queries';
 import { migrate } from '../schema';
@@ -8,14 +8,14 @@ async function setup() {
   const db = memoryDb();
   await migrate(db);
   await migrate(db);
-  const pid = await q.createProfile(db, 'Luiza', 160, samplePlan());
+  const pid = await q.createProfile(db, 'Luiza', 160, fullPlan());
   return { db, pid };
 }
 
 test('profiles and active profile', async () => {
   const { db, pid } = await setup();
   expect(await q.getActiveProfileId(db)).toBe(pid);
-  const other = await q.createProfile(db, 'Ana', null, samplePlan());
+  const other = await q.createProfile(db, 'Ana', null, fullPlan());
   await q.setActiveProfileId(db, other);
   expect(await q.getActiveProfileId(db)).toBe(other);
   expect((await q.getProfile(db, pid))?.plan.days).toHaveLength(5);
@@ -84,8 +84,8 @@ test('backup round-trips into a new profile, and delete removes everything', asy
 });
 
 test('plan-only JSON files are validated', () => {
-  expect(() => parseJsonFile('not json')).toThrow('JSON válido');
-  expect(() => parseJsonFile('{"foo":1}')).toThrow('plano válido');
+  expect(() => parseJsonFile('not json')).toThrow('não é um backup');
+  expect(() => parseJsonFile('{"foo":1}')).toThrow('não tem um plano');
   const p = parseJsonFile(JSON.stringify({ days: [{ label: 'Treino A', exercises: [{ name: 'Supino', sets: 3, reps: 10 }, { bad: 1 }] }] }));
   expect(p.plan.days[0].exercises).toEqual([expect.objectContaining({ name: 'Supino', sets: 3, reps: '10' })]);
   expect(p.plan.days[0].weekday).toBeNull();

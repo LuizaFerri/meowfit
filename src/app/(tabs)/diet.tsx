@@ -65,8 +65,8 @@ export default function Diet() {
       <WaterCard />
 
       {meals.length === 0 ? (
-        <Empty icon="restaurant-outline" text="Seu perfil ainda não tem dieta. Cole o cardápio do nutricionista ou abra um arquivo.">
-          <Button small variant="secondary" label="Importar dieta" icon="download-outline" onPress={() => router.push({ pathname: '/import', params: { parte: 'dieta' } })} />
+        <Empty icon="restaurant-outline" text="Seu perfil ainda não tem dieta. Monte suas refeições e metas.">
+          <Button small variant="secondary" label="Montar dieta" icon="create-outline" onPress={() => router.push({ pathname: '/edit-plan', params: { parte: 'dieta' } })} />
         </Empty>
       ) : (
         <>
@@ -126,9 +126,9 @@ export default function Diet() {
         <Button
           small
           variant="ghost"
-          label="Importar dieta"
-          icon="download-outline"
-          onPress={() => router.push({ pathname: '/import', params: { parte: 'dieta' } })}
+          label="Colar texto"
+          icon="clipboard-outline"
+          onPress={() => router.push({ pathname: '/edit-plan', params: { parte: 'dieta', modo: 'texto' } })}
           style={{ flex: 1 }}
         />
         <Button
@@ -136,7 +136,7 @@ export default function Diet() {
           variant="ghost"
           label="Editar dieta"
           icon="create-outline"
-          onPress={() => router.push({ pathname: '/import', params: { parte: 'dieta', modo: 'editar' } })}
+          onPress={() => router.push({ pathname: '/edit-plan', params: { parte: 'dieta' } })}
           style={{ flex: 1 }}
         />
       </Row>
@@ -145,7 +145,6 @@ export default function Diet() {
 }
 
 function TargetsCard({ targets: t }: { targets: Targets }) {
-  const { colors } = useTheme();
   if (t.kcalMin === undefined && t.proteinMin === undefined) return null;
   return (
     <Row>
@@ -231,10 +230,12 @@ function OtherNote({ initial, onSave }: { initial: string; onSave: (text: string
   const [justSaved, setJustSaved] = useState(false);
   const input = useRef<ComponentRef<typeof TextInput>>(null);
 
-  useEffect(() => {
+  const [prevInitial, setPrevInitial] = useState(initial);
+  if (initial !== prevInitial) {
+    setPrevInitial(initial);
     setText(initial);
     setSaved(initial);
-  }, [initial]);
+  }
 
   useEffect(() => {
     if (!justSaved) return;

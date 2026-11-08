@@ -1,10 +1,10 @@
-import { SAMPLE_TEXT } from '@/data/samplePlan';
+import { FULL_PLAN_TEXT } from '@/test/fullPlan';
 import { makePlanFile, parseJsonFile } from '@/lib/backup';
 import { foundIn, ignoredIn, parseExercise, parsePlanText, pickSections, planToText } from '@/lib/planText';
 import { emptyPlan } from '@/lib/types';
 
 describe('parsePlanText', () => {
-  const { plan, warnings, found } = parsePlanText(SAMPLE_TEXT);
+  const { plan, warnings, found } = parsePlanText(FULL_PLAN_TEXT);
 
   it('reads the five training days from the PDF plan', () => {
     expect(warnings).toEqual([]);
@@ -86,7 +86,7 @@ describe('flexible input', () => {
 });
 
 describe('separate workout and diet imports', () => {
-  const sample = parsePlanText(SAMPLE_TEXT).plan;
+  const sample = parsePlanText(FULL_PLAN_TEXT).plan;
 
   it('parses a diet without section headers', () => {
     const r = parsePlanText(

@@ -1,4 +1,4 @@
-import { samplePlan } from '@/data/samplePlan';
+import { fullPlan } from '@/test/fullPlan';
 import * as q from '@/db/queries';
 import { migrate } from '@/db/schema';
 import { memoryDb } from '@/test/memoryDb';
@@ -22,7 +22,7 @@ test('without a profile the widgets ask to open the app', async () => {
 
 test('summarizes today, the week, water and meals', async () => {
   const db = await setup();
-  const plan = stampTreino(samplePlan(), '2026-11-01');
+  const plan = stampTreino(fullPlan(), '2026-11-01');
   const pid = await q.createProfile(db, 'Luiza', 160, plan);
   await q.setWorkoutDone(db, pid, '2026-11-06', 'Sexta', '', true);
   await q.setExerciseDone(db, pid, '2026-11-10', q.exKey('Aquecimento'), true);
