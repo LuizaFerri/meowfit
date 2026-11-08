@@ -1,6 +1,6 @@
 # Documentação do MeowFit
 
-MeowFit é um app Android, feito com React Native e Expo, para acompanhar treino, cargas, dieta e medidas. Ele não tem servidor: cada celular guarda os próprios dados num banco SQLite local, e um mesmo aparelho pode ter vários perfis.
+MeowFit é um app Android, feito com React Native e Expo, para acompanhar treino, cargas, dieta e medidas. Ele não tem servidor: cada celular guarda os próprios dados num banco SQLite local. Cada pessoa usa o app no próprio celular, com um perfil só. O banco ainda aceita vários perfis (versões antigas permitiam criar mais de um); nesse caso, a aba Perfil mostra a troca entre eles, e só nesse caso.
 
 ## Sumário
 
@@ -33,9 +33,10 @@ MeowFit é um app Android, feito com React Native e Expo, para acompanhar treino
 | Dieta | `/diet` | Metas, água, escolha da opção em cada refeição e adesão da semana |
 | Histórico da dieta | `/diet-history` | Um cartão por dia com cada refeição: opção do plano, o que foi comido fora do plano ou "Não registrado", além da adesão e da água do dia. Mostra 30 dias por vez (`buildDietHistory` em `src/lib/diet.ts`) |
 | Progresso | `/progress` | Checklist semanal de treinos e hábitos, além de peso e cintura com gráficos |
-| Perfil | `/profile` | Troca e edição de perfil, plano, exportação, backup e exclusão |
-| Novo perfil | `/new-profile` | Cria um perfil a partir do plano de exemplo, de um plano vazio ou de um backup |
-| Importar | `/import` | `?parte=treino` ou `?parte=dieta` importa só aquela parte, por texto ou arquivo. Somando `&modo=editar`, edita a parte como texto. Com `?modo=arquivo`, restaura um backup |
+| Perfil | `/profile` | Nome e altura, treino e dieta ("Editar", "Colar texto", "Enviar"), tema, backup e "Apagar meus dados" (volta para as boas-vindas) |
+| Boas-vindas | `/new-profile` | Aparece quando não há perfil. Abre numa tela de apresentação (`Welcome`: logo `logo-lilas` ou `logo-dark` conforme o tema, num círculo `#7E1DBE` igual nos dois temas; o que ele faz, "Criar meu cadastro" e "Já tenho um backup") e depois segue o cadastro em 3 etapas: você (nome, altura e peso), treino e dieta. Nas duas últimas, a pessoa escolhe entre "Item por item" (formulário) e "Colar texto", e pode pular. Também restaura um backup |
+| Editar plano | `/edit-plan` | `?parte=treino` ou `?parte=dieta` edita a parte com o `PartEditor`: "Item por item" ou "Colar texto". `&modo=texto` abre direto no texto, e `&novo=1` (aviso de troca de treino) grava `treinoSince` ao salvar |
+| Importar | `/import` | `?parte=treino` ou `?parte=dieta` importa só aquela parte, por texto ou arquivo. Somando `&modo=editar`, edita a parte como texto. Com `?modo=arquivo`, restaura um backup no lugar dos dados atuais. Abrir um arquivo de treino ou dieta recebido também passa por aqui |
 
 ## 2. Stack
 
@@ -64,18 +65,20 @@ src/
     workout/[day].tsx     sessão de treino
     exercise/[name].tsx   evolução de um exercício
     import.tsx            importar / editar plano / restaurar backup
-    new-profile.tsx       criação de perfil e boas-vindas
-  components/             UI reutilizável (ui.tsx, theme.ts, ThemeProvider, LineChart, WaterCard, RestTimer, BmiCard)
-  data/samplePlan.ts      plano de exemplo, escrito no formato de texto
+    new-profile.tsx       cadastro em etapas e boas-vindas
+    edit-plan.tsx         edição de treino ou dieta por formulário
+  components/             UI reutilizável (ui.tsx, theme.ts, ThemeProvider, LineChart, WaterCard, RestTimer, BmiCard, PartEditor, WorkoutEditor, DietEditor)
+  data/examplePlan.ts     plano de exemplo genérico (3 dias, 4 refeições), escrito no formato de texto
   db/schema.ts            tabelas e migrações
   db/queries.ts           todas as consultas SQL
-  lib/                    lógica pura: parser de texto, backup, datas, tipos, treino do dia
+  lib/                    lógica pura: parser de texto, formulário do plano (planForm), backup, datas, tipos, treino do dia
+  test/                   utilitários de teste: banco em memória e o plano completo usado nos testes (fullPlan)
   store/useApp.ts         estado global e hooks de dados
 ```
 
 Só o que fica em `src/app` vira rota. Componentes, hooks e utilitários ficam fora dessa pasta. Os nomes de arquivo e de rota são em inglês; os textos que aparecem para a pessoa usuária são em português.
 
-A pasta `design/` guarda as artes originais em alta resolução (`header-light.png`, `header-dark.png`, `splash.png`). O app não usa essas imagens direto: as versões otimizadas ficam em `assets/`.
+A pasta `design/` guarda as artes originais em alta resolução (`logo-dark.png`, `logo-lilas.png`, `header-light.png`, `header-dark.png`, `notification-bell.png`; as artes antigas continuam lá). O app não usa essas imagens direto: as versões otimizadas ficam em `assets/`.
 
 ## 4. Arquitetura
 
@@ -122,6 +125,7 @@ Os campos de carga e repetições ficam em estado local. Eles são preenchidos u
 - `ThemeProvider` (`src/components/ThemeProvider.tsx`) escolhe a paleta pelo modo salvo em `settings` (chave `theme`): `lilas`, `escuro` ou `sistema`, que segue o celular.
 - Os componentes leem a paleta com `const { colors, s } = useTheme()`. `s` são os estilos base (`src/components/styles.ts`), gerados uma vez por paleta.
 - Estilos que dependem de cor e ficam fora de um componente são funções que recebem a paleta, por exemplo `sessionStyles(colors)`.
+- **Janelas de aviso e confirmação** (`src/components/DialogHost.tsx`): todo `Alert.alert` de `@/lib/alert` abre esta janela, com fundo escurecido, cartão na cor `card` e ícone no topo (pata para avisos, interrogação para perguntas, alerta para ações destrutivas). Botões: cancelar com contorno, ação principal em `primary`, ação destrutiva em `danger`. Com dois botões eles ficam lado a lado; com mais, um embaixo do outro. Tocar fora ou no voltar do Android equivale a cancelar.
 - Todas as combinações de texto e fundo foram conferidas com contraste mínimo de 4,5:1 (WCAG AA) nos dois temas.
 - O tema é escolhido no card **Aparência** do Perfil.
 - **Barras do sistema:**
@@ -129,24 +133,27 @@ Os campos de carga e repetições ficam em estado local. Eles são preenchidos u
   - O plugin `expo-navigation-bar` está com `enforceContrast: false`, o que tira a película clara que o Android põe atrás dos botões. Assim a barra fica transparente e mostra a cor da barra de abas.
   - Essa opção só vale no APK ou num development build. No Expo Go a película continua.
 
-**Ícone.** O ícone do app vem de `design/icon-dark.png` (gatos e "Meowfit" no círculo roxo escuro).
-- O Android não troca o ícone do app conforme o tema claro ou escuro (esse recurso só existe no iOS). Por isso o app usa só a versão escura. A versão clara fica guardada em `design/icon-light.png`.
-- `assets/icon.png` (1024 px) e `assets/favicon.png` (48 px) são a arte inteira.
+**Ícone.** O ícone do app vem de `design/logo-dark.png` (os dois gatos correndo e "Meowfit" no círculo escuro).
+- O Android não troca o ícone do app conforme o tema claro ou escuro (esse recurso só existe no iOS). Por isso o ícone usa só a versão escura. A versão clara (`logo-lilas`) aparece na splash e nas boas-vindas do tema Lilás.
+- `assets/icon.png` (1024 px), `assets/favicon.png` (48 px) e os ícones da PWA em `public/` são a arte inteira.
+- `assets/logo-dark.png` e `assets/logo-lilas.png` (768 px) são o círculo recortado, com os cantos transparentes. Usados na splash nativa e na tela de boas-vindas.
 - No ícone adaptativo do Android:
-  - **Primeiro plano** (`android-icon-foreground.png`): a arte em 80% do tamanho. Assim, em máscaras redondas a borda do círculo fica escondida e aparecem os gatos e o nome.
-  - **Fundo** (`android-icon-background.png` e `adaptiveIcon.backgroundColor`): `#170A2B`, o mesmo tom escuro do fundo da arte.
+  - **Primeiro plano** (`android-icon-foreground.png`): o círculo recortado em 74% do tamanho (760 de 1024 px). Assim, na máscara redonda (que mostra só os 66% do centro) a borda some e aparecem os gatos e o nome inteiro.
+  - **Fundo** (`android-icon-background.png` e `adaptiveIcon.backgroundColor`): `#140C1F`, o mesmo tom escuro do fundo da arte.
 
 **Notificações** (plugin `expo-notifications` no `app.json`):
 - **Ícone pequeno** (`assets/notification-icon.png`): uma patinha branca em fundo transparente (96 px). O Android pinta esse ícone como silhueta, então ele não pode ser colorido. A cor de destaque é `#7044B8`.
-- **Ícone grande** (`assets/notification-large.png`): a arte colorida de `design/notification-large.png`, recortada em quadrado com cantos arredondados para tirar o halo da borda (512 px). Aparece à direita do texto de todas as notificações, aplicado pela própria biblioteca.
+- **Sem ícone grande:** o Xiaomi/HyperOS já mostra o ícone do app à esquerda, e o ícone grande ficava repetido à direita, sempre alinhado ao topo (o Android não deixa centralizar sem layout próprio). Por isso o `largeIcon` saiu do plugin. A arte do sino (`design/notification-bell.png`) está guardada, mas ainda não é usada.
 - **Canais:** `water_alerts` (água) e `rest` (fim do descanso) têm importância alta, para aparecer como balão no topo da tela.
   - O Android não deixa mudar a importância de um canal já criado. Para mudar, crie um canal com outro id e coloque o antigo em `LEGACY_CHANNELS` (`src/lib/notifications.ts`), que é apagado ao abrir o app. Foi o que aconteceu com o `water`, que era de importância padrão.
   - Em alguns celulares (Xiaomi/HyperOS, por exemplo), o balão também depende de ativar "Notificações flutuantes" para o app nas configurações do Android.
 
-- A splash (tela de abertura) usa `assets/splash-icon.png`, gerada de `design/splash.png`: o círculo recortado, com os cantos transparentes. O fundo é `#F6F1FB` no tema claro do celular e `#16121E` no escuro, as mesmas cores de fundo dos temas Lilás e Escuro.
+**Abertura do app** (duas partes):
+- **Splash nativa** (plugin `expo-splash-screen`): `assets/logo-lilas.png` em fundo `#EFDFFC` no tema claro do celular, e `assets/logo-dark.png` em `#16121E` no escuro. Ela é estática e só aparece no APK (o Expo Go mostra o ícone).
+- **Splash animada** (`src/components/AnimatedSplash.tsx`): logo depois, uma camada por cima do app mostra `assets/splash-cats.gif` (os gatos se alongando, 508 px, de lottie.host) com "MeowFit" e "Alongando as patinhas…". O GIF toca com `expo-image`, com até 340 px de largura (largura da tela menos 32 nos celulares menores). Ele é quadrado e tem uma faixa ondulada com borda reta embaixo, então uma moldura com `overflow: hidden` mostra só as linhas 92 a 440 (os gatos e as sombras). No tema Lilás o fundo é `#EFDFFC`, a mesma cor do GIF, e os gatos parecem soltos na tela; no Escuro, o fundo do tema e o recorte vira um card lilás com cantos arredondados. A `_layout.tsx` chama `SplashScreen.preventAutoHideAsync()`, e a nativa só some quando o GIF carrega (ou depois de 0,6 s). A camada fica pelo menos 2,2 s (cerca de uma volta do GIF), espera o perfil carregar e some com fade de 0,38 s.
 
 **Cabeçalho da tela Hoje** (`src/components/HeaderBanner.tsx`):
-- **Arte:** uma por tema, as duas com 1500 × 501.
+- **Arte:** uma por tema, as duas com 1500 × 500 (proporção 3:1).
   - `assets/header.jpg`, gerada de `design/header-light.png` (tema Lilás).
   - `assets/header-dark.jpg`, gerada de `design/header-dark.png` (tema Escuro).
   - As duas têm a mesma composição, então o texto fica no mesmo lugar.
@@ -307,10 +314,17 @@ Na importação:
 
 - Um objeto `Plan` "puro", com `days` na raiz, também é aceito. Arquivos sem `part` servem para as duas importações, e cada uma pega só as suas seções.
 - `validatePlan` trata o arquivo como não confiável: descarta campos com tipo errado e exercícios sem nome, e dá erro se não existir `days`.
-- Um backup sempre é restaurado como **novo perfil** (`restoreBackup`), dentro de uma transação. Só as colunas da lista `COLUMNS` são inseridas, o que impede que um JSON editado à mão grave colunas arbitrárias.
+- Na tela de boas-vindas, o backup cria o perfil. Pelo Perfil, ele **substitui os dados atuais**: depois de uma confirmação, `restoreBackup` cria o perfil do backup numa transação, o perfil antigo é apagado e o novo vira o ativo. Só as colunas da lista `COLUMNS` são inseridas, o que impede que um JSON editado à mão grave colunas arbitrárias.
 
 ## 10. Regras de negócio
 
+- **Formulário do plano** (`src/lib/planForm.ts`): o formulário trabalha com rascunhos (`WorkoutDraft`, `DietDraft`) e converte de/para o `Plan`.
+  - Dias ficam na ordem da semana (segunda a domingo); treinos sem dia fixo (`Treino A`, `B`…) vêm depois.
+  - Exercício com séries vira `sets`/`reps` (com `load` se "Anotar a carga" estiver marcado). Sem séries, o texto de repetições vira `note` (ex.: "20 min").
+  - Exercícios sem nome, dias sem exercícios e refeições sem nome ou sem opções não são salvos, e a tela avisa antes.
+  - Metas com um valor só (ex.: só calorias mínimas) gravam mínimo e máximo iguais; se os dois vierem trocados, o app desinverte.
+- **Item por item ou texto** (`src/components/PartEditor.tsx`): os dois modos editam o mesmo rascunho. No texto, cada mudança é lida com `parsePlanText` e vira rascunho na hora, e um resumo acima da caixa mostra quantos dias, exercícios ou refeições foram reconhecidos. Se o texto também tiver a outra parte (ex.: plano inteiro colado no treino), a tela avisa; no cadastro (`fillOther`), essa outra parte já preenche a etapa seguinte, desde que ela esteja vazia. Ao trocar para o texto, o rascunho atual é escrito com `planToText`. Assim dá pra colar o texto e conferir ou ajustar item por item. A ajuda e os exemplos do formato ficam em `src/lib/planHelp.ts`. Ao salvar, o texto substitui a parte inteira, como no formulário.
+- **Plano de exemplo** (`src/data/examplePlan.ts`): genérico e curto, só para mostrar como funciona. Aparece como "Começar com um exemplo" no cadastro e na edição, quando a parte está vazia.
 - **Treino de hoje** (`pickToday`): primeiro procura o dia com o `weekday` de hoje. Se não houver, e o plano tiver treinos em rodízio, pega o treino seguinte ao último concluído. Se nenhum dos dois casos se aplicar, é dia de descanso.
 - **Conclusão do treino:** concluir o treino grava `workout_done` para a data, e isso marca o treino no checklist semanal. Um exercício com carga é marcado como feito automaticamente quando todas as séries têm peso.
 - **Carga anterior:** é a última data **anterior a hoje** em que o exercício teve carga anotada (`getPreviousSets`). Ela aparece como placeholder e pode ser copiada pelo botão "Repetir".
@@ -335,7 +349,7 @@ Na importação:
   - O aumento sugerido é +1 kg para cargas abaixo de 10 kg e +2,5 kg para as demais.
   - Some quando você digita uma carga no dia ou quando o exercício já está feito.
 - **Troca de treino** (`shouldSuggestChange`): avisa no "Hoje" com 8 semanas desde `plan.treinoSince`.
-  - `treinoSince` é gravado ao importar treino, usar o treino de exemplo ou criar um perfil. Editar como texto não muda a data.
+  - `treinoSince` é gravado ao importar treino, ao criar um perfil com treino , ao salvar o primeiro treino de um perfil que não tinha nenhum ou ao salvar pelo botão "Montar treino novo" do aviso de troca. Editar um treino que já existe (por formulário ou texto) não muda a data.
   - Em perfis antigos, sem `treinoSince`, conta a partir do primeiro treino concluído.
   - "Lembrar em 2 semanas" grava `treinoSnooze`. "Já troquei" reinicia a contagem.
 - **Lembretes de água** (`src/lib/water.ts` e `src/lib/notifications.ts`): configurados pelo sino do card de Água, por perfil (`settings`, chave `water_reminder:<id>`), com intervalo e janela de horário.
@@ -374,6 +388,7 @@ Testes:
 |---|---|
 | `src/lib/__tests__/planText.test.ts` | parser com o plano do PDF, formatos flexíveis, importação separada de treino e dieta, arquivos por parte e ida e volta texto → plano → texto |
 | `src/lib/__tests__/workout.test.ts` | escolha do treino do dia (semana e rodízio) |
+| `src/lib/__tests__/planForm.test.ts` | ida e volta plano → formulário → plano, ordem dos dias, campos vazios e metas da dieta |
 | `src/db/__tests__/queries.test.ts` | migrações, consultas, backup/restauração e exclusão contra um SQLite real (`node:sqlite`, Node 22.13+) |
 
 O teste do banco usa um adaptador que imita a API assíncrona do expo-sqlite em cima do `node:sqlite`. Com isso, o SQL de verdade é executado sem precisar de emulador.
@@ -397,7 +412,7 @@ Para atualizar o app, gere um novo build com a mesma conta. Ele instala por cima
 
 - **Nova tela:** crie um arquivo em `src/app`. Se ela não for uma aba, registre o título no `Stack` de `src/app/_layout.tsx`.
 - **Nova tabela:** adicione uma **nova string** ao fim de `MIGRATIONS`, sem editar as migrações antigas. Se a tabela tiver dados por perfil, inclua ela em `PROFILE_TABLES` e em `COLUMNS` (`backup.ts`).
-- **Novo campo no plano:** atualize `types.ts`, `validatePlan` (`backup.ts`), `parsePlanText`, `planToText`, `Section` e `PART_SECTIONS` (`planText.ts`), e acrescente um caso ao teste de ida e volta.
+- **Novo campo no plano:** atualize `types.ts`, `planForm.ts` e o editor da parte, `validatePlan` (`backup.ts`), `parsePlanText`, `planToText`, `Section` e `PART_SECTIONS` (`planText.ts`), e acrescente um caso ao teste de ida e volta.
 - **Biblioteca com código nativo:** instale com `npx expo install`. Se ela não vier no Expo Go, vai ser preciso usar um development build (`eas build --profile development`) para testar.
 
 ## 14. Widgets Android
@@ -414,11 +429,11 @@ Três widgets de tela inicial, feitos com [react-native-android-widget](https://
 - `data.ts`: `loadWidgetData(db)` lê o banco e monta os números, com as mesmas regras do app (`pickToday`, `missedStreak`, refeições no plano). Não depende da biblioteca e é testado com SQLite real.
 - `components.tsx`: o visual, com `FlexWidget` e `TextWidget`. As cores vêm das paletas `lilac` e `dark`.
 - `render.tsx`: escolhe a paleta pelo tema do app. No modo `sistema`, entrega as duas versões e o Android escolhe. Também atualiza os widgets (`updateAllWidgets`).
-- `handler.tsx`: chamado pelo Android quando um widget é adicionado, atualizado ou tocado. Trata o `ADD_WATER`.
+- `handler.tsx`: chamado pelo Android quando um widget é adicionado, atualizado ou tocado. Trata o `ADD_WATER` e, a cada chamada, atualiza também os outros widgets.
 - `index.ts`: ponto de entrada seguro (`registerWidgets` e `refreshWidgets`).
 
 **Como os dados ficam em dia:**
-- No app, o `Gate` (`src/app/_layout.tsx`) chama `refreshWidgets` 0,8 s depois de qualquer escrita no banco (`rev`), de trocar de perfil ou de mudar o tema.
+- Fora do app, o Android pede atualização a cada 30 min (`updatePeriodMillis`), o que cobre a virada do dia. Esse pedido chega para cada widget separadamente, e alguns celulares (Xiaomi/HyperOS) atrasam ou pulam alguns. Por isso, sempre que o handler roda para um widget, ele também atualiza os outros (`updateAllWidgets`).
 - Fora do app, o Android pede atualização a cada 30 min (`updatePeriodMillis`), o que cobre a virada do dia.
 - O handler roda sem o app aberto e abre o banco por conta própria (`widgetDb`).
 
@@ -442,13 +457,13 @@ Como instalar um app no iPhone sem a conta paga da Apple não é possível, o ap
   - O plugin `expo-router` envia os cabeçalhos `Cross-Origin-Embedder-Policy: credentialless` e `Cross-Origin-Opener-Policy: same-origin`, exigidos pelo banco (expo-sqlite) na web.
 - `metro.config.js`: aceita arquivos `.wasm` (o SQLite da web) e envia os mesmos cabeçalhos no servidor de desenvolvimento.
 - `src/app/+html.tsx`: página base usada só na web. Segue o template do SDK 58: precisa de `useServerDocumentContext()` com `{headNodes}` e `{bodyNodes}`, senão os scripts do app não são injetados e a página fica em branco. Também traz as meta tags do iPhone (tela cheia, título, `apple-touch-icon`), a cor da barra por tema, o bloqueio do zoom automático em campos e a cor de fundo inicial.
-- `public/`: `manifest.json` e os ícones `icon-192.png`, `icon-512.png` e `apple-touch-icon.png`, gerados de `design/icon-dark.png`.
+- `public/`: `manifest.json` e os ícones `icon-192.png`, `icon-512.png` e `apple-touch-icon.png`, gerados de `design/logo-dark.png`.
 
 **Diferenças em relação ao app Android** (sempre com `Platform.OS === 'web'`; no celular nada muda):
 
 | Recurso | Na web |
 |---|---|
-| Alertas e confirmações | `src/lib/alert.ts` usa `window.confirm`/`window.alert`, porque o `Alert` do React Native não aparece na web |
+| Alertas e confirmações | Iguais ao Android: `src/lib/alert.ts` põe o aviso numa fila e o `DialogHost` desenha a janela do app (o `Alert` do React Native não aparece na web) |
 | Salvar ao sair do campo | `onBlur` além de `onEndEditing` (séries e texto da refeição), só na web |
 | Exportar backup ou plano | Compartilhamento do sistema (`navigator.share`) ou download do arquivo (`src/lib/files.ts`) |
 | Importar arquivo | Lido direto do arquivo escolhido no navegador |

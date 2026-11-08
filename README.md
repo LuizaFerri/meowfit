@@ -1,6 +1,6 @@
 # MeowFit
 
-App Android para acompanhar treino, cargas, dieta e medidas. Funciona offline: os dados ficam só no celular (SQLite) e não há backend. Dá para ter vários perfis no mesmo aparelho.
+App Android para acompanhar treino, cargas, dieta e medidas. Funciona offline: os dados ficam só no celular (SQLite) e não há backend. Cada pessoa usa no próprio celular; para trocar de aparelho, exporte um backup e restaure no novo.
 
 ## Testar no celular (sem gerar APK)
 
@@ -42,9 +42,13 @@ npx expo export -p web
 npx eas-cli@latest deploy --prod
 ```
 
-## Importar treino e dieta
+## Montar treino e dieta
 
-Treino e dieta são importados separadamente, e importar um não mexe no outro. Dá pra importar pelas abas **Treino** e **Dieta** ou pelos cards de Treino e Dieta no **Perfil**.
+No primeiro acesso, um cadastro em 3 etapas pede nome, altura e peso, depois o treino e a dieta, por formulário (dá pra pular as duas últimas). Depois, tudo se altera em **Perfil → Editar treino / Editar dieta**.
+
+Em cada etapa e na edição dá pra escolher entre **Item por item** e **Colar texto**; o texto segue o formato abaixo.
+
+Treino e dieta são importados separadamente, e importar um não mexe no outro.
 
 **Treino:**
 
@@ -75,7 +79,7 @@ Regras:
 Proteína em toda refeição
 ```
 
-Cada parte também pode ser editada como texto e compartilhada como `.json`. O backup completo (perfil, plano e histórico) fica no card **Backup** do Perfil.
+Cada parte também pode ser enviada para outra pessoa pelo botão **Enviar**. O backup completo (perfil, plano e histórico) fica no card **Backup** do Perfil.
 
 ## Documentação
 
