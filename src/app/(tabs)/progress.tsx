@@ -76,7 +76,7 @@ export default function Progress() {
           <Check key={i} checked={doneLabels.has(d.label)} label={dayName(d)} onPress={() => {}} />
         ))}
         <Body muted style={{ fontSize: 13 }}>
-          Marcado automaticamente ao concluir o treino. Regra das duas faltas: pode faltar um dia, nunca dois seguidos.
+          Marcado automaticamente ao concluir o treino. Regra das duas faltas: pode faltar um treino, nunca dois seguidos.
         </Body>
       </Card>
 

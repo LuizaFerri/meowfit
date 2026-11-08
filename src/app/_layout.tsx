@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
 import { Loading } from '@/components/ui';
 import { migrate } from '@/db/schema';
-import { setupNotifications, syncWaterReminders } from '@/lib/notifications';
+import { setupNotifications, syncWaterReminders, syncWorkoutReminders } from '@/lib/notifications';
 import { useApp } from '@/store/useApp';
 import { refreshWidgets } from '@/widgets';
 import { ThemeProvider, useTheme } from '@/components/ThemeProvider';
@@ -67,6 +67,12 @@ function Gate() {
     const sub = AppState.addEventListener('change', (st) => st === 'active' && sync());
     return () => sub.remove();
   }, [db, pid, loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const id = setTimeout(() => syncWorkoutReminders(db, pid).catch(() => {}), 1500);
+    return () => clearTimeout(id);
+  }, [db, pid, loaded, rev]);
 
   if (!loaded) return <Loading />;
 

@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { RestBar, RestFinished, useRestTimer } from '@/components/RestTimer';
@@ -16,9 +17,12 @@ import {
   upsertSet,
   type SetRow,
 } from '@/db/queries';
-import { fmtShort, todayKey } from '@/lib/dates';
+import { Alert } from '@/lib/alert';
+import { celebrate } from '@/lib/celebrate';
+import { fmtLong, fmtShort, todayKey } from '@/lib/dates';
 import { suggestIncrease } from '@/lib/progression';
 import { isSetFinished } from '@/lib/session';
+import { WALK_LABEL } from '@/lib/workout';
 import type { Exercise } from '@/lib/types';
 import { useData, useProfile, useWrite } from '@/store/useApp';
 import { useTheme } from '@/components/ThemeProvider';
@@ -34,11 +38,14 @@ function group(rows: SetRow[]) {
 export default function Session() {
   const { colors, s } = useTheme();
   const st = sessionStyles(colors);
-  const { day: dayParam } = useLocalSearchParams<{ day: string }>();
+  const { day: dayParam, data: dateParam } = useLocalSearchParams<{ day: string; data?: string }>();
   const profile = useProfile();
   const write = useWrite();
+  const db = useSQLiteContext();
   const day = profile.plan.days[Number(dayParam)];
-  const [date] = useState(todayKey);
+  const [today] = useState(todayKey);
+  const date = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && dateParam < today ? dateParam : today;
+  const readOnly = date !== today;
   const keys = day ? day.exercises.map((e) => exKey(e.name)) : [];
 
   const timer = useRestTimer();
@@ -58,7 +65,7 @@ export default function Session() {
         sessions.set(r.exercise, list);
       });
       const prev = new Map([...sessions].map(([k, v]) => [k, v[0] ?? []]));
-      return { today: group(today), prev, sessions, done, finished: w.length > 0 };
+      return { today: group(today), prev, sessions, done, finished: w.some((x) => x.label !== WALK_LABEL) };
     },
     [dayParam, date],
   );
@@ -94,9 +101,22 @@ export default function Session() {
 
   const doneCount = day.exercises.filter((e) => data.done.has(exKey(e.name))).length;
 
-  const toggleDone = (e: Exercise) => {
+  const askToFinish = (justDone: string) => {
+    if (data.finished) return;
+    const pending = day.exercises.filter((x) => exKey(x.name) !== justDone && !data.done.has(exKey(x.name)));
+    if (pending.length > 0) return;
+    Alert.alert('Treino completo! 🎉', 'Todos os exercícios estão feitos. Concluir o treino e somar na sequência?', [
+      { text: 'Agora não', style: 'cancel' },
+      { text: 'Concluir', onPress: () => finish() },
+    ]);
+  };
+
+  const toggleDone = async (e: Exercise) => {
     const k = exKey(e.name);
-    return write((db) => setExerciseDone(db, profile.id, date, k, !data.done.has(k)));
+    if (readOnly) return;
+    const marking = !data.done.has(k);
+    await write((db) => setExerciseDone(db, profile.id, date, k, marking));
+    if (marking) askToFinish(k);
   };
 
   const update = (k: string, i: number, field: keyof Entry, value: string) =>
@@ -108,7 +128,7 @@ export default function Session() {
 
   const save = (e: Exercise, i: number, entry: Entry = entries[exKey(e.name)]?.[i], rest = true) => {
     const k = exKey(e.name);
-    if (!entry) return;
+    if (!entry || readOnly) return;
     const id = `${k}:${i}`;
     const before = saved.current[id];
     const changed = before !== sig(entry);
@@ -118,11 +138,12 @@ export default function Session() {
     const reps = entry.reps.trim() || null;
     const setFinished = rest && isSetFinished(before, entry);
     if (setFinished && !timer.running) timer.start();
+    const completes = setFinished && i === (e.sets ?? 0) - 1 && !data.done.has(k);
     return write(async (db) => {
       await upsertSet(db, profile.id, k, date, i, weight, reps);
-      if (setFinished && i === (e.sets ?? 0) - 1) {
-        await setExerciseDone(db, profile.id, date, k, true);
-      }
+      if (completes) await setExerciseDone(db, profile.id, date, k, true);
+    }).then(() => {
+      if (completes) askToFinish(k);
     });
   };
 
@@ -145,8 +166,12 @@ export default function Session() {
   };
 
   const finish = async () => {
-    await write((db) => setWorkoutDone(db, profile.id, date, day.label, day.title, !data.finished));
-    if (!data.finished) router.back();
+    if (readOnly) return;
+    const concluding = !data.finished;
+    await write((db) => setWorkoutDone(db, profile.id, date, day.label, day.title, concluding));
+    if (!concluding) return;
+    await celebrate(db, profile.id, profile.plan).catch(() => {});
+    router.back();
   };
 
   const total = day.exercises.length;
@@ -174,10 +199,19 @@ export default function Session() {
             </View>
           </Row>
           <ProgressBar value={total > 0 ? doneCount / total : 0} color={allDone ? colors.accent : colors.primary} />
+          {readOnly && (
+            <Row style={{ gap: 6, alignItems: 'flex-start' }}>
+              <Ionicons name="lock-closed-outline" size={16} color={colors.muted} />
+              <Text style={{ fontSize: 13, color: colors.muted, flexShrink: 1 }}>
+                <Text style={{ fontWeight: '700' }}>{capitalize(fmtLong(date))}</Text>
+                {data.finished ? '' : ' · não registrado'}. Dias que já passaram ficam só para ver: dá para marcar treinos apenas no dia.
+              </Text>
+            </Row>
+          )}
           {data.finished && (
             <Row style={{ gap: 6 }}>
               <Ionicons name="checkmark-done-circle" size={18} color={colors.accent} />
-              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.accent }}>Treino concluído hoje</Text>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.accent }}>{readOnly ? `Treino concluído em ${fmtShort(date)}` : 'Treino concluído hoje'}</Text>
             </Row>
           )}
         </Card>
@@ -187,7 +221,7 @@ export default function Session() {
           const prev = data.prev.get(k) ?? [];
           const done = data.done.has(k);
           const typed = (entries[k] ?? []).some((x) => x.weight.trim());
-          const sug = !typed && !done ? suggestIncrease(e, data.sessions.get(k) ?? []) : null;
+          const sug = !typed && !done && !readOnly ? suggestIncrease(e, data.sessions.get(k) ?? []) : null;
           const lastMax = prev.length ? Math.max(...prev.map((p) => p.weight ?? 0)) : 0;
           const rows = entries[k] ?? [];
           const timed = /\bs$/.test(e.reps ?? '');
@@ -196,6 +230,7 @@ export default function Session() {
               <Row style={{ gap: 12, alignItems: 'flex-start' }}>
                 <Pressable
                   onPress={() => toggleDone(e)}
+                  disabled={readOnly}
                   hitSlop={8}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: done }}
@@ -254,7 +289,7 @@ export default function Session() {
 
               {rows.length > 0 && (
                 <View style={{ gap: 8 }}>
-                  {prev.length > 0 && (
+                  {prev.length > 0 && !readOnly && (
                     <Row style={st.lastBox}>
                       <Ionicons name="time-outline" size={14} color={colors.muted} />
                       <Text style={[s.small, { flex: 1 }]} numberOfLines={1}>
@@ -296,7 +331,8 @@ export default function Session() {
                               onEndEditing={() => save(e, i)}
                               onBlur={WEB ? () => save(e, i) : undefined}
                               keyboardType="decimal-pad"
-                              placeholder={fmtNum((prev.find((p) => p.set_index === i) ?? prev[prev.length - 1])?.weight) || '0'}
+                              editable={!readOnly}
+                              placeholder={readOnly ? '–' : fmtNum((prev.find((p) => p.set_index === i) ?? prev[prev.length - 1])?.weight) || '0'}
                               placeholderTextColor={colors.muted}
                               selectTextOnFocus
                             />
@@ -311,7 +347,8 @@ export default function Session() {
                             onEndEditing={() => save(e, i)}
                             onBlur={WEB ? () => save(e, i) : undefined}
                             keyboardType={/^\d+$/.test(e.reps ?? '') ? 'number-pad' : 'default'}
-                            placeholder={e.reps?.split(' ')[0] ?? ''}
+                            editable={!readOnly}
+                            placeholder={readOnly ? '–' : (e.reps?.split(' ')[0] ?? '')}
                             placeholderTextColor={colors.muted}
                             selectTextOnFocus
                           />
@@ -326,15 +363,17 @@ export default function Session() {
           );
         })}
 
-        <Button
-          label={data.finished ? 'Treino concluído · desfazer' : 'Concluir treino'}
-          variant={data.finished ? 'ghost' : 'primary'}
-          icon={data.finished ? 'refresh-outline' : 'checkmark-done-outline'}
-          onPress={finish}
-          style={{ marginTop: 8 }}
-        />
+        {!readOnly && (
+          <Button
+            label={data.finished ? 'Treino concluído · desfazer' : 'Concluir treino'}
+            variant={data.finished ? 'ghost' : 'primary'}
+            icon={data.finished ? 'refresh-outline' : 'checkmark-done-outline'}
+            onPress={finish}
+            style={{ marginTop: 8 }}
+          />
+        )}
       </Screen>
-      {!data.finished && <RestBar timer={timer} />}
+      {!data.finished && !readOnly && <RestBar timer={timer} />}
       <RestFinished timer={timer} />
     </KeyboardAvoidingView>
   );

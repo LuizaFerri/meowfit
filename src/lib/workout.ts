@@ -1,5 +1,4 @@
-import { addDays, differenceInCalendarDays, parseISO } from 'date-fns';
-import { toKey } from './dates';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 import type { Plan, WorkoutDay } from './types';
 
 export function pickToday(plan: Plan, lastLabel: string | null, date = new Date()): number | null {
@@ -16,32 +15,7 @@ export const dayName = (d: WorkoutDay) => (d.title ? `${d.label} · ${d.title}` 
 export const target = (e: { sets?: number; reps?: string; note?: string }) =>
   e.sets !== undefined ? `${e.sets} × ${e.reps ?? ''}` : (e.note ?? '');
 
-const WEEKEND = new Set([0, 6]);
-
-export function trainingWeekdays(plan: Plan): Set<number> {
-  const fixed = plan.days.map((d) => d.weekday).filter((w): w is number => w !== null && !WEEKEND.has(w));
-  return new Set(fixed.length > 0 ? fixed : [1, 2, 3, 4, 5]);
-}
-
-export function missedStreak({
-  trainingDays,
-  doneDates,
-  today,
-  since,
-}: {
-  trainingDays: Set<number>;
-  doneDates: Set<string>;
-  today: Date;
-  since: string | null;
-}): number {
-  if (!since) return 0;
-  let streak = 0;
-  for (let i = 1, d = addDays(today, -1); i <= 60 && toKey(d) >= since; i++, d = addDays(d, -1)) {
-    if (doneDates.has(toKey(d))) break;
-    if (trainingDays.has(d.getDay())) streak++;
-  }
-  return streak;
-}
+export const WALK_LABEL = 'Caminhada';
 
 export const CHANGE_AFTER_WEEKS = 8;
 

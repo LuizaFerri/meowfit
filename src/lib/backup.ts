@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { createProfile, getProfile } from '@/db/queries';
+import { createProfile, getProfile, getSchedule, setSchedule } from '@/db/queries';
+import type { ScheduleEntry } from './streak';
 import { PROFILE_TABLES } from '@/db/schema';
 import { PART_SECTIONS, dedupe, pickSections, type Part } from './planText';
 import { emptyPlan, type Exercise, type Plan } from './types';
@@ -15,11 +16,18 @@ export type BackupFile = {
   profile: { name: string; height_cm: number | null };
   plan: Plan;
   data: Partial<Record<(typeof PROFILE_TABLES)[number], Record<string, unknown>[]>>;
+  schedule?: ScheduleEntry[];
 };
 
 const str = (v: unknown, fallback = '') => (typeof v === 'string' ? v : fallback);
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
-const isDate = (v: unknown): v is string => typeof v === 'string' && /^d{4}-d{2}-d{2}$/.test(v);
+const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+const validSchedule = (v: unknown): ScheduleEntry[] =>
+  Array.isArray(v)
+    ? v
+        .filter((e) => e && typeof e.since === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.since) && Array.isArray(e.weekdays))
+        .map((e) => ({ since: e.since, weekdays: e.weekdays.filter((w: unknown) => typeof w === 'number' && w >= 0 && w <= 6) }))
+    : [];
 const strArr = (v: unknown) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
 
 export function validatePlan(raw: unknown): Plan {
@@ -110,6 +118,7 @@ export async function makeBackup(db: SQLiteDatabase, pid: number): Promise<Backu
     profile: { name: profile.name, height_cm: profile.height_cm },
     plan: profile.plan,
     data,
+    schedule: await getSchedule(db, pid),
   };
 }
 
@@ -141,6 +150,8 @@ export async function restoreBackup(db: SQLiteDatabase, b: BackupFile, plan: Pla
         );
       }
     }
+    const schedule = validSchedule(b.schedule);
+    if (schedule.length > 0) await setSchedule(db, id, schedule);
   });
   return id;
 }

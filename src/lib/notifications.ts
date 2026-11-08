@@ -2,13 +2,18 @@ import * as Notifications from 'expo-notifications';
 import { AndroidImportance } from 'expo-notifications';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { Platform } from 'react-native';
-import { getProfile, getSetting, getWater } from '@/db/queries';
+import { getProfile, getSchedule, getSetting, getWater, getWorkoutDates, getWorkouts } from '@/db/queries';
 import { todayKey } from './dates';
 import { fmtNum } from './format';
+import { computeStreak } from './streak';
+import { WALK_LABEL } from './workout';
+import { DEFAULT_WORKOUT_REMINDER, workoutReminderKey, workoutReminderSlots, type WorkoutReminder } from './workoutReminder';
 import { DEFAULT_WATER_REMINDER, waterSlots, type WaterReminder } from './water';
 
 const WATER = 'water';
 const REST = 'rest';
+const WORKOUT = 'workout';
+const WORKOUT_CHANNEL = 'workout_alerts';
 const WATER_CHANNEL = 'water_alerts';
 const LEGACY_CHANNELS = ['water'];
 
@@ -30,6 +35,13 @@ export function setupNotifications() {
       importance: AndroidImportance.HIGH,
       enableVibrate: true,
       vibrationPattern: [0, 250],
+    }).catch(() => {});
+    Notifications.setNotificationChannelAsync(WORKOUT_CHANNEL, {
+      name: 'Lembretes de treino',
+      description: 'Aviso nos dias de treino e quando a sequência está em risco',
+      importance: AndroidImportance.HIGH,
+      enableVibrate: true,
+      vibrationPattern: [0, 250, 150, 250],
     }).catch(() => {});
     Notifications.setNotificationChannelAsync(REST, {
       name: 'Fim do descanso',
@@ -70,30 +82,59 @@ export async function cancelNotification(id: string | null) {
 
 export const waterKey = (pid: number) => `water_reminder:${pid}`;
 
-let running: Promise<void> | null = null;
-let pending: { db: SQLiteDatabase; pid: number | null } | null = null;
+type Job = { db: SQLiteDatabase; pid: number | null };
 
-export function syncWaterReminders(db: SQLiteDatabase, pid: number | null): Promise<void> {
-  if (!notificationsAvailable) return Promise.resolve();
-  pending = { db, pid };
-  running ??= (async () => {
-    while (pending) {
-      const next = pending;
-      pending = null;
-      await scheduleWater(next.db, next.pid).catch(() => {});
-    }
-    running = null;
-  })();
-  return running;
+function serialized(task: (db: SQLiteDatabase, pid: number | null) => Promise<void>) {
+  let running: Promise<void> | null = null;
+  let pending: Job | null = null;
+  return (db: SQLiteDatabase, pid: number | null): Promise<void> => {
+    if (!notificationsAvailable) return Promise.resolve();
+    pending = { db, pid };
+    running ??= (async () => {
+      while (pending) {
+        const next: Job = pending;
+        pending = null;
+        await task(next.db, next.pid).catch(() => {});
+      }
+      running = null;
+    })();
+    return running;
+  };
+}
+
+export const syncWaterReminders = serialized((db, pid) => scheduleWater(db, pid));
+
+export const syncWorkoutReminders = serialized((db, pid) => scheduleWorkout(db, pid));
+
+async function cancelKind(kind: string) {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    scheduled.filter((n) => n.content.data?.kind === kind).map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
+  );
+}
+
+async function scheduleWorkout(db: SQLiteDatabase, pid: number | null) {
+  await cancelKind(WORKOUT);
+  if (pid === null) return;
+  const settings = await getSetting<WorkoutReminder>(db, workoutReminderKey(pid), DEFAULT_WORKOUT_REMINDER);
+  if (!settings.enabled || !(await Notifications.getPermissionsAsync()).granted) return;
+  const profile = await getProfile(db, pid);
+  if (!profile) return;
+  const today = todayKey();
+  const [todayRows, dates, schedule] = await Promise.all([getWorkouts(db, pid, today, today), getWorkoutDates(db, pid), getSchedule(db, pid)]);
+  const now = new Date();
+  const doneToday = todayRows.some((w) => w.label !== WALK_LABEL);
+  const streak = computeStreak(profile.plan, dates, now, schedule);
+  for (const slot of workoutReminderSlots(profile.plan, settings, now, doneToday, streak)) {
+    await Notifications.scheduleNotificationAsync({
+      content: { title: slot.title, body: slot.body, data: { kind: WORKOUT } },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: slot.at, channelId: WORKOUT_CHANNEL },
+    });
+  }
 }
 
 async function scheduleWater(db: SQLiteDatabase, pid: number | null) {
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  await Promise.all(
-    scheduled
-      .filter((n) => n.content.data?.kind === WATER)
-      .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
-  );
+  await cancelKind(WATER);
   if (pid === null) return;
   const settings = await getSetting<WaterReminder>(db, waterKey(pid), DEFAULT_WATER_REMINDER);
   if (!settings.enabled || !(await Notifications.getPermissionsAsync()).granted) return;

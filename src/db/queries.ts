@@ -1,5 +1,8 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
+import { format } from 'date-fns';
 import { normalize } from '@/lib/planText';
+import { nextSchedule, type ScheduleEntry } from '@/lib/streak';
+import { WALK_LABEL } from '@/lib/workout';
 import type { Plan, Profile } from '@/lib/types';
 import { PROFILE_TABLES } from './schema';
 
@@ -31,7 +34,9 @@ export async function createProfile(db: SQLiteDatabase, name: string, height: nu
     JSON.stringify(plan),
     new Date().toISOString(),
   );
-  return res.lastInsertRowId;
+  const id = res.lastInsertRowId;
+  await recordSchedule(db, id, null, plan);
+  return id;
 }
 
 export async function updateProfile(db: SQLiteDatabase, id: number, name: string, height: number | null) {
@@ -39,6 +44,8 @@ export async function updateProfile(db: SQLiteDatabase, id: number, name: string
 }
 
 export async function savePlan(db: SQLiteDatabase, id: number, plan: Plan) {
+  const before = await getProfile(db, id);
+  await recordSchedule(db, id, before?.plan ?? null, plan);
   await db.runAsync('UPDATE profiles SET plan_json = ? WHERE id = ?', JSON.stringify(plan), id);
 }
 
@@ -46,6 +53,7 @@ export async function deleteProfile(db: SQLiteDatabase, id: number) {
   await db.withTransactionAsync(async () => {
     for (const t of PROFILE_TABLES) await db.runAsync(`DELETE FROM ${t} WHERE profile_id = ?`, id);
     await db.runAsync('DELETE FROM profiles WHERE id = ?', id);
+    await db.runAsync('DELETE FROM settings WHERE key IN (?, ?)', scheduleKey(id), `workout_reminder:${id}`);
   });
 }
 
@@ -132,8 +140,9 @@ export async function getWorkouts(db: SQLiteDatabase, pid: number, from: string,
 
 export async function getLastWorkout(db: SQLiteDatabase, pid: number) {
   return db.getFirstAsync<WorkoutRow>(
-    'SELECT date, label, title FROM workout_done WHERE profile_id = ? ORDER BY date DESC LIMIT 1',
+    'SELECT date, label, title FROM workout_done WHERE profile_id = ? AND label != ? ORDER BY date DESC LIMIT 1',
     pid,
+    WALK_LABEL,
   );
 }
 
@@ -349,4 +358,30 @@ export async function addMeasurement(
 
 export async function deleteMeasurement(db: SQLiteDatabase, id: number) {
   await db.runAsync('DELETE FROM measurements WHERE id = ?', id);
+}
+
+export async function getWorkoutDates(db: SQLiteDatabase, pid: number) {
+  const rows = await db.getAllAsync<{ date: string }>('SELECT date FROM workout_done WHERE profile_id = ? ORDER BY date', pid);
+  return rows.map((r) => r.date);
+}
+
+const scheduleKey = (pid: number) => `schedule:${pid}`;
+
+export async function getSchedule(db: SQLiteDatabase, pid: number): Promise<ScheduleEntry[]> {
+  const r = await db.getFirstAsync<{ value: string }>('SELECT value FROM settings WHERE key = ?', scheduleKey(pid));
+  try {
+    const list = r ? JSON.parse(r.value) : [];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function setSchedule(db: SQLiteDatabase, pid: number, schedule: ScheduleEntry[]) {
+  await setSetting(db, scheduleKey(pid), schedule);
+}
+
+export async function recordSchedule(db: SQLiteDatabase, pid: number, before: Plan | null, after: Plan, today = format(new Date(), 'yyyy-MM-dd')) {
+  const next = nextSchedule(await getSchedule(db, pid), before, after, today);
+  if (next) await setSchedule(db, pid, next);
 }

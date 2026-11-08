@@ -1,4 +1,4 @@
-import { FlexWidget, TextWidget, type ColorProp } from 'react-native-android-widget';
+import { FlexWidget, SvgWidget, TextWidget, type ColorProp } from 'react-native-android-widget';
 import type { Palette } from '@/components/theme';
 import { fmtNum } from '@/lib/format';
 import type { WidgetData } from './data';
@@ -65,7 +65,9 @@ export function TodayWidget({ d, c }: { d: WidgetData; c: Palette }) {
   const day = d.day;
   const title = !day ? 'Dia de descanso' : day.title ? `${day.label} · ${day.title}` : day.label;
   const status = !day
-    ? 'Uma caminhada leve conta!'
+    ? d.walked
+      ? 'Caminhada feita ✓'
+      : 'Uma caminhada leve também conta!'
     : d.finished
       ? 'Treino concluído ✓'
       : `${day.done} de ${day.total} exercícios`;
@@ -75,7 +77,15 @@ export function TodayWidget({ d, c }: { d: WidgetData; c: Palette }) {
     <Shell c={c} uri={day ? WIDGET_URI.workout(day.idx) : WIDGET_URI.home}>
       <FlexWidget style={{ flexDirection: 'row', width: 'match_parent', justifyContent: 'space-between', alignItems: 'center' }}>
         <TextWidget text="🐾 MeowFit" style={{ fontSize: 13, fontWeight: '700', color: hex(c.primary) }} />
-        <TextWidget text={d.dateLabel} style={{ fontSize: 12, color: hex(c.muted) }} />
+        <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', flexGap: 3 }}>
+          {d.streak && (
+            <SvgWidget svg={flameSvg(flameColorFor(d.streak.state, c), flameLit(d.streak))} style={{ width: 13, height: 13 }} />
+          )}
+          {d.streak && (
+            <TextWidget text={`${d.streak.count} · `} style={{ fontSize: 12, fontWeight: '700', color: hex(c.text) }} />
+          )}
+          <TextWidget text={d.dateLabel} style={{ fontSize: 12, color: hex(c.muted) }} />
+        </FlexWidget>
       </FlexWidget>
 
       <FlexWidget style={{ flexDirection: 'column', width: 'match_parent', flexGap: 5 }}>
@@ -98,9 +108,25 @@ export function TodayWidget({ d, c }: { d: WidgetData; c: Palette }) {
   );
 }
 
+const FLAME_PATH =
+  'M12 2.5c.6 3-1.4 4.8-3 6.6C7.4 10.9 6 12.9 6 15.4 6 19.1 8.7 22 12 22s6-2.9 6-6.6c0-2.6-1.2-4.6-2.5-6.1.1 1.7-.5 3.1-1.7 3.8.4-3.7-.4-7.6-1.8-10.6z';
+
+export function flameSvg(color: string, lit: boolean) {
+  const paint = lit ? `fill="${color}"` : `fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="${FLAME_PATH}" ${paint}/></svg>`;
+}
+
+const flameLit = (st: NonNullable<WidgetData['streak']>) => st.state === 'feito' || (st.state === 'descanso' && st.count > 0);
+
+const flameColorFor = (state: NonNullable<WidgetData['streak']>['state'], c: Palette) =>
+  state === 'risco' || state === 'zerada' ? c.muted : c.primary;
+
 export function WeekWidget({ d, c }: { d: WidgetData; c: Palette }) {
   if (!d.ready) return <OpenApp c={c} />;
-  const warn = d.missed === 1 ? 'Hoje não pode faltar!' : d.missed > 1 ? `${d.missed} faltas seguidas` : '';
+  const st = d.streak;
+  const warn = st?.state === 'risco' ? 'Hoje não pode faltar!' : st?.state === 'zerada' ? 'Volte hoje! Recomece a sequência' : '';
+  const lit = !!st && flameLit(st);
+  const flameColor = st ? flameColorFor(st.state, c) : c.primary;
   return (
     <Shell c={c} uri={WIDGET_URI.progress} padding={10}>
       <FlexWidget style={{ flexDirection: 'row', width: 'match_parent', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -126,13 +152,25 @@ export function WeekWidget({ d, c }: { d: WidgetData; c: Palette }) {
             </FlexWidget>
           ))}
         </FlexWidget>
-        <FlexWidget style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
-          <TextWidget text={`${d.weekDone}/${d.planned}`} style={{ fontSize: 18, fontWeight: '800', color: hex(c.text) }} />
-          <TextWidget text="treinos" style={{ fontSize: 10, color: hex(c.muted) }} />
-        </FlexWidget>
+        {st ? (
+          <FlexWidget style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
+            <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', flexGap: 2 }}>
+              <SvgWidget svg={flameSvg(flameColor, lit)} style={{ width: 18, height: 18 }} />
+              <TextWidget text={String(st.count)} style={{ fontSize: 18, fontWeight: '800', color: hex(st.state === 'risco' ? c.muted : c.text) }} />
+            </FlexWidget>
+            <TextWidget text={st.unit === 'semanas' ? 'semanas' : 'seguidos'} style={{ fontSize: 10, color: hex(c.muted) }} />
+          </FlexWidget>
+        ) : (
+          <FlexWidget style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
+            <TextWidget text={`${d.weekDone}/${d.planned}`} style={{ fontSize: 18, fontWeight: '800', color: hex(c.text) }} />
+            <TextWidget text="treinos" style={{ fontSize: 10, color: hex(c.muted) }} />
+          </FlexWidget>
+        )}
       </FlexWidget>
       {warn ? (
         <TextWidget text={warn} maxLines={1} style={{ fontSize: 11, fontWeight: '700', color: hex(c.primary), marginTop: 4 }} />
+      ) : st ? (
+        <TextWidget text={`${d.weekDone}/${d.planned} treinos nesta semana`} maxLines={1} style={{ fontSize: 11, color: hex(c.muted), marginTop: 4 }} />
       ) : null}
     </Shell>
   );

@@ -66,6 +66,9 @@ test('backup round-trips into a new profile, and delete removes everything', asy
   await q.upsertSet(db, pid, 'stiff', '2026-11-05', 0, 20, '10');
   await q.addMeasurement(db, pid, '2026-11-01', 63, 78);
   await q.setHabit(db, pid, '2026-11-02', 'Dormi bem', true);
+  const plan = (await q.getProfile(db, pid))!.plan;
+  await q.recordSchedule(db, pid, plan, { ...plan, days: plan.days.slice(0, 2), treinoSince: '2026-10-01' }, '2026-11-03');
+  await q.savePlan(db, pid, { ...plan, days: plan.days.slice(0, 2), treinoSince: '2026-10-01' });
 
   const backup = await makeBackup(db, pid);
   const parsed = parseJsonFile(JSON.stringify(backup));
@@ -76,8 +79,17 @@ test('backup round-trips into a new profile, and delete removes everything', asy
   expect((await q.getProfile(db, copy))?.name).toBe('Luiza (cópia)');
   expect(await q.getExerciseHistory(db, copy, 'stiff')).toHaveLength(1);
   expect(await q.getMeasurements(db, copy)).toMatchObject([{ date: '2026-11-01', weight_kg: 63, waist_cm: 78 }]);
+  expect((await q.getProfile(db, copy))?.plan.treinoSince).toBe('2026-10-01');
+  expect(await q.getSchedule(db, copy)).toEqual([
+    { since: '0000-01-01', weekdays: [1, 2, 3, 4, 5] },
+    { since: '2026-11-03', weekdays: [1, 2] },
+  ]);
+  const { schedule: _ignored, ...oldBackup } = backup;
+  const oldCopy = await restoreBackup(db, oldBackup, parsed.plan, 'Antigo');
+  expect(await q.getSchedule(db, oldCopy)).toEqual([{ since: '0000-01-01', weekdays: [1, 2] }]);
 
   await q.deleteProfile(db, pid);
+  expect(await q.getSchedule(db, pid)).toEqual([]);
   expect(await q.getProfile(db, pid)).toBeNull();
   expect(await q.getExerciseHistory(db, pid, 'stiff')).toHaveLength(0);
   expect(await q.getExerciseHistory(db, copy, 'stiff')).toHaveLength(1);

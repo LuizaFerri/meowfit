@@ -11,6 +11,7 @@ import { todayKey } from '@/lib/dates';
 import { safeFileName, shareJson } from '@/lib/files';
 import { useApp, useData, useProfile } from '@/store/useApp';
 import { ThemePicker } from '@/components/ThemePicker';
+import { WorkoutReminderCard } from '@/components/WorkoutReminderCard';
 import { useTheme } from '@/components/ThemeProvider';
 
 export default function ProfileTab() {
@@ -140,6 +141,8 @@ export default function ProfileTab() {
       />
 
       <ThemePicker />
+
+      <WorkoutReminderCard />
 
       <Card>
         <Subtitle>Backup</Subtitle>

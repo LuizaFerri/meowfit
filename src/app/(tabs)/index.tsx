@@ -2,11 +2,13 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { addDays } from 'date-fns';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Body, Button, Card, Chip, ProgressBar, Row, Screen, Subtitle } from '@/components/ui';
 import { HeaderBanner } from '@/components/HeaderBanner';
 import { space } from '@/components/theme';
 import { WaterCard } from '@/components/WaterCard';
+import { StreakCard } from '@/components/StreakCard';
+import { computeStreak } from '@/lib/streak';
 import {
   exKey,
   getDoneExercises,
@@ -14,19 +16,16 @@ import {
   getLastWorkout,
   getMealLogs,
   getMeasurements,
+  getSchedule,
+  getWorkoutDates,
   getWorkouts,
   savePlan,
+  setWorkoutDone,
 } from '@/db/queries';
+import { celebrate } from '@/lib/celebrate';
 import { daysSince, fmtLong, todayKey, toKey, weekDays } from '@/lib/dates';
-import {
-  dayName,
-  missedStreak,
-  pickToday,
-  shouldSuggestChange,
-  stampTreino,
-  trainingWeekdays,
-} from '@/lib/workout';
-import { useApp, useData, useProfile } from '@/store/useApp';
+import { WALK_LABEL, dayName, pickToday, shouldSuggestChange, stampTreino } from '@/lib/workout';
+import { useApp, useData, useProfile, useWrite } from '@/store/useApp';
 import { useTheme } from '@/components/ThemeProvider';
 
 const capitalize = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -37,6 +36,7 @@ export default function Today() {
   const { colors } = useTheme();
   const db = useSQLiteContext();
   const loadActive = useApp((st) => st.loadActive);
+  const write = useWrite();
   const profile = useProfile();
   const plan = profile.plan;
   const date = todayKey();
@@ -44,14 +44,15 @@ export default function Today() {
 
   const [info] = useData(
     async (db, pid) => {
-      const [last, done, week, meals, measures, recent, firstWorkout] = await Promise.all([
+      const [last, done, week, meals, measures, firstWorkout, allDates, schedule] = await Promise.all([
         getLastWorkout(db, pid),
         getDoneExercises(db, pid, date),
         getWorkouts(db, pid, toKey(days[0]), toKey(days[6])),
         getMealLogs(db, pid, date),
         getMeasurements(db, pid),
-        getWorkouts(db, pid, toKey(addDays(new Date(), -60)), date),
         getFirstWorkoutDate(db, pid),
+        getWorkoutDates(db, pid),
+        getSchedule(db, pid),
       ]);
       const lastLabel = last?.date === date ? null : (last?.label ?? null);
       return {
@@ -60,8 +61,9 @@ export default function Today() {
         week,
         meals,
         lastMeasure: measures[measures.length - 1] ?? null,
-        recentDates: new Set(recent.map((w) => w.date)),
         firstWorkout,
+        allDates,
+        schedule,
       };
     },
     [date],
@@ -69,7 +71,8 @@ export default function Today() {
 
   if (!info) return <Screen>{null}</Screen>;
 
-  const doneToday = info.week.find((w) => w.date === date);
+  const doneToday = info.week.find((w) => w.date === date && w.label !== WALK_LABEL);
+  const walkedToday = info.week.some((w) => w.date === date && w.label === WALK_LABEL);
   const todayIdx = doneToday
     ? plan.days.findIndex((d) => d.label === doneToday.label)
     : pickToday(plan, info.lastLabel);
@@ -79,13 +82,23 @@ export default function Today() {
   const planned = plan.days.filter((d) => d.weekday !== null).length || plan.days.length;
   const mealsOnPlan = [...info.meals.values()].filter((o) => o >= 0).length;
   const measureAge = info.lastMeasure ? daysSince(info.lastMeasure.date) : null;
-  const trainingDays = trainingWeekdays(plan);
-  const isTrainingDay = trainingDays.has(new Date().getDay());
-  const missed =
-    plan.days.length > 0 && isTrainingDay && !doneToday
-      ? missedStreak({ trainingDays, doneDates: info.recentDates, today: new Date(), since: info.firstWorkout })
-      : 0;
   const changeWeeks = shouldSuggestChange(plan, info.firstWorkout, date);
+  const streak = computeStreak(plan, info.allDates, new Date(), info.schedule);
+  const workoutsThisWeek = info.week.filter((w) => w.label !== WALK_LABEL).length;
+
+  const workoutIndexFor = (d: Date, key: string, isToday: boolean): number | null => {
+    const doneRow = info.week.find((w) => w.date === key);
+    const doneIdx = doneRow ? plan.days.findIndex((p) => p.label === doneRow.label) : -1;
+    if (doneIdx >= 0) return doneIdx;
+    if (isToday && todayIdx !== null && todayIdx >= 0) return todayIdx;
+    const byWeekday = plan.days.findIndex((p) => p.weekday === d.getDay());
+    return byWeekday >= 0 ? byWeekday : null;
+  };
+
+  const toggleWalk = async () => {
+    await write((db) => setWorkoutDone(db, profile.id, date, WALK_LABEL, '', !walkedToday));
+    if (!walkedToday) await celebrate(db, profile.id, plan);
+  };
 
   const updatePlan = async (next: typeof plan) => {
     await savePlan(db, profile.id, next);
@@ -98,23 +111,7 @@ export default function Today() {
         <HeaderBanner name={profile.name} subtitle={capitalize(fmtLong(date))} />
       </View>
 
-      {missed > 0 && (
-        <Card style={{ backgroundColor: colors.primarySoft, borderColor: colors.primarySoft }}>
-          <Row style={{ alignItems: 'flex-start' }}>
-            <Ionicons name="alert-circle" size={22} color={colors.primary} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Body style={{ fontWeight: '700' }}>
-                {missed === 1 ? 'Hoje não pode faltar' : `${missed} faltas seguidas`}
-              </Body>
-              <Body style={{ fontSize: 14 }}>
-                {missed === 1
-                  ? 'Você faltou no último dia de treino. Regra das duas faltas: pode faltar um dia, nunca dois seguidos.'
-                  : 'Volte hoje, nem que seja o mínimo viável: só os 3 primeiros exercícios, uns 30 minutos.'}
-              </Body>
-            </View>
-          </Row>
-        </Card>
-      )}
+      {streak && <StreakCard streak={streak} walked={walkedToday && !doneToday} />}
 
       {changeWeeks !== null && (
         <Card style={{ backgroundColor: colors.accentSoft, borderColor: colors.accentSoft }}>
@@ -172,7 +169,15 @@ export default function Today() {
           </>
         ) : (
           <>
-            <Body muted>Dia de descanso. Uma caminhada leve de 30-40 min conta!</Body>
+            <Body muted>Dia de descanso. Uma caminhada leve de 30-40 min também conta na sequência!</Body>
+            {walkedToday ? (
+              <Row style={{ justifyContent: 'space-between' }}>
+                <Chip label="Caminhada ✓" active />
+                <Button small variant="ghost" label="Desfazer" icon="refresh-outline" onPress={toggleWalk} />
+              </Row>
+            ) : (
+              <Button small label="Fiz uma caminhada" icon="walk-outline" onPress={toggleWalk} />
+            )}
             <Body muted>Quer treinar mesmo assim?</Body>
             <Row style={{ flexWrap: 'wrap' }}>
               {plan.days.map((d, i) => (
@@ -187,7 +192,7 @@ export default function Today() {
         <Row style={{ justifyContent: 'space-between' }}>
           <Subtitle>Semana</Subtitle>
           <Body muted>
-            {info.week.length} de {planned} treinos
+            {workoutsThisWeek} de {planned} treinos
           </Body>
         </Row>
         <Row style={{ justifyContent: 'space-between', marginTop: 4 }}>
@@ -195,8 +200,19 @@ export default function Today() {
             const key = toKey(d);
             const done = weekDates.has(key);
             const isToday = key === date;
+            const idx = workoutIndexFor(d, key, isToday);
             return (
-              <View key={key} style={{ alignItems: 'center', gap: 4 }}>
+              <Pressable
+                key={key}
+                disabled={idx === null}
+                onPress={() =>
+                  idx !== null &&
+                  router.push(key < date ? { pathname: '/workout/[day]', params: { day: String(idx), data: key } } : `/workout/${idx}`)
+                }
+                accessibilityRole="button"
+                accessibilityLabel={idx !== null ? `Abrir o treino de ${plan.days[idx].label}` : undefined}
+                style={({ pressed }) => ({ alignItems: 'center', gap: 4, opacity: pressed ? 0.6 : 1 })}
+              >
                 <Text style={{ fontSize: 12, color: isToday ? colors.primary : colors.muted, fontWeight: isToday ? '700' : '400' }}>
                   {DOW[i]}
                 </Text>
@@ -212,9 +228,15 @@ export default function Today() {
                     borderColor: isToday ? colors.primary : colors.border,
                   }}
                 >
-                  {done ? <Ionicons name="checkmark" size={18} color={colors.onAccent} /> : <Text style={{ color: colors.muted }}>{d.getDate()}</Text>}
+                  {done ? (
+                    <Ionicons name="checkmark" size={18} color={colors.onAccent} />
+                  ) : (
+                    <Text style={{ color: idx !== null ? colors.text : colors.muted, fontWeight: idx !== null ? '600' : '400' }}>
+                      {d.getDate()}
+                    </Text>
+                  )}
                 </View>
-              </View>
+              </Pressable>
             );
           })}
         </Row>
