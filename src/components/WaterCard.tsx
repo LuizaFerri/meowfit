@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, Switch, View } from 'react-native';
 import { Alert } from '@/lib/alert';
 import { addWater, getSetting, getWater, setSetting } from '@/db/queries';
@@ -34,7 +34,11 @@ export function WaterCard() {
   const value = data?.ml ?? 0;
   const reminder = local ?? data?.reminder ?? DEFAULT_WATER_REMINDER;
 
-  useEffect(() => setLocal(null), [data, profile.id]);
+  const [seen, setSeen] = useState({ data, pid: profile.id });
+  if (seen.data !== data || seen.pid !== profile.id) {
+    setSeen({ data, pid: profile.id });
+    setLocal(null);
+  }
 
   const add = (delta: number) =>
     write(async (db) => {

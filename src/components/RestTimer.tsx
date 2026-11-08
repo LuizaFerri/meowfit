@@ -19,7 +19,7 @@ export function useRestTimer() {
   const [seconds, setSeconds] = useState(90);
   const [endAt, setEndAt] = useState<number | null>(null);
   const [total, setTotal] = useState(90);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const [finished, setFinished] = useState(false);
   const notif = useRef<string | null>(null);
   const asked = useRef(false);
@@ -30,19 +30,18 @@ export function useRestTimer() {
 
   useEffect(() => {
     if (endAt === null) return;
-    const id = setInterval(() => setNow(Date.now()), 250);
-    return () => clearInterval(id);
-  }, [endAt]);
-
-  useEffect(() => {
-    if (endAt !== null && now >= endAt) {
+    const id = setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t < endAt) return;
       Vibration.vibrate([0, 400, 200, 400]);
       cancelNotification(notif.current);
       notif.current = null;
       setEndAt(null);
       setFinished(true);
-    }
-  }, [now, endAt]);
+    }, 250);
+    return () => clearInterval(id);
+  }, [endAt]);
 
   useEffect(() => {
     if (!finished) return;

@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { getActiveProfileId, getProfile, setActiveProfileId } from '@/db/queries';
 import type { Profile } from '@/lib/types';
@@ -37,23 +37,29 @@ export function useProfile(): Profile {
   return p;
 }
 
-export function useData<T>(loader: (db: SQLiteDatabase, pid: number) => Promise<T>, deps: unknown[] = []) {
+export function useData<T>(loader: (db: SQLiteDatabase, pid: number) => Promise<T>, deps: (string | number | null | undefined)[] = []) {
   const db = useSQLiteContext();
   const pid = useApp((s) => s.profile?.id);
   const rev = useApp((s) => s.rev);
-  const [data, setData] = useState<T | null>(null);
+  const [state, setState] = useState<{ key: string; data: T } | null>(null);
+  const latest = useRef(loader);
+  const key = `${pid}|${rev}|${JSON.stringify(deps)}`;
+
+  useEffect(() => {
+    latest.current = loader;
+  });
 
   const load = useCallback(() => {
     if (pid === undefined) return;
     let alive = true;
-    loader(db, pid).then((d) => alive && setData(d));
+    latest.current(db, pid).then((data) => alive && setState({ key, data }));
     return () => {
       alive = false;
     };
-  }, [db, pid, rev, ...deps]);
+  }, [db, pid, key]);
 
   useFocusEffect(load);
-  return [data, load] as const;
+  return [state?.data ?? null, load] as const;
 }
 
 export function useWrite() {

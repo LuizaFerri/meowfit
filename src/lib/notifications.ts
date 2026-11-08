@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+import { AndroidImportance } from 'expo-notifications';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { Platform } from 'react-native';
 import { getProfile, getSetting, getWater } from '@/db/queries';
@@ -26,14 +27,14 @@ export function setupNotifications() {
     Notifications.setNotificationChannelAsync(WATER_CHANNEL, {
       name: 'Lembretes de água',
       description: 'Lembretes para beber água ao longo do dia',
-      importance: Notifications.AndroidImportance.HIGH,
+      importance: AndroidImportance.HIGH,
       enableVibrate: true,
       vibrationPattern: [0, 250],
     }).catch(() => {});
     Notifications.setNotificationChannelAsync(REST, {
       name: 'Fim do descanso',
       description: 'Aviso quando o tempo de descanso entre séries acaba',
-      importance: Notifications.AndroidImportance.HIGH,
+      importance: AndroidImportance.HIGH,
       enableVibrate: true,
       vibrationPattern: [0, 400, 200, 400],
     }).catch(() => {});

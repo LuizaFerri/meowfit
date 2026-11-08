@@ -65,7 +65,6 @@ export default function ExerciseHistory() {
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
-  const { colors } = useTheme();
   return (
     <Card style={{ alignItems: 'center', padding: 8, borderWidth: 0, gap: 0 }}>
       <Body muted style={{ fontSize: 12 }}>
