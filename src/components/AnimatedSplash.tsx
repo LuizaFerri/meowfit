@@ -61,7 +61,12 @@ export function AnimatedSplash() {
   const scale = pop.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] });
 
   return (
-    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.wrap, { opacity }]}>
+    <Animated.View
+      pointerEvents="none"
+      needsOffscreenAlphaCompositing
+      renderToHardwareTextureAndroid
+      style={[StyleSheet.absoluteFill, styles.wrap, { opacity }]}
+    >
       <Animated.View style={{ alignItems: 'center', gap: 6, opacity: pop, transform: [{ scale }] }}>
         <View style={{ width: SIZE, height: SIZE }} accessible accessibilityLabel="Os gatos do MeowFit se alongando">
           {FRAMES.map((src, i) => (

@@ -51,10 +51,14 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/logo-lilas.png",
-          "imageWidth": 240,
+          "image": "./assets/splash-blank.png",
+          "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#EFDFFC"
+          "backgroundColor": "#EFDFFC",
+          "dark": {
+            "image": "./assets/splash-blank.png",
+            "backgroundColor": "#EFDFFC"
+          }
         }
       ],
       [
