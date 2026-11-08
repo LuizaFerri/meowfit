@@ -102,8 +102,7 @@
             }
           ]
         }
-      ],
-      "expo-image"
+      ]
     ],
     "experiments": {
       "typedRoutes": false
