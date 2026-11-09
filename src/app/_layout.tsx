@@ -17,6 +17,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { NavigationBar } from 'expo-navigation-bar';
 
+export const unstable_settings = { anchor: '(tabs)' };
+
 setupNotifications();
 SplashScreen.preventAutoHideAsync().catch(() => {});
 

@@ -459,9 +459,10 @@ Três widgets de tela inicial, feitos com [react-native-android-widget](https://
 - `handler.tsx`: chamado pelo Android quando um widget é adicionado, atualizado ou tocado. Trata o `ADD_WATER` e, a cada chamada, atualiza também os outros widgets.
 - `index.ts`: ponto de entrada seguro (`registerWidgets` e `refreshWidgets`).
 
+**Toque e navegação:** os toques abrem links `meowfit://` (`WIDGET_URI`). O `src/app/_layout.tsx` exporta `unstable_settings = { anchor: '(tabs)' }`, então uma tela aberta por link (ex.: `workout/[day]`) sempre tem as abas por baixo e o botão de voltar. A biblioteca entrega o toque por um broadcast que abre o app; ela descarta de propósito o toque que chega logo depois de o widget mudar de tamanho ou ser redesenhado, e no Xiaomi a permissão "Exibir janelas pop-up enquanto executa em segundo plano" pode bloquear a abertura.
+
 **Como os dados ficam em dia:**
 - Fora do app, o Android pede atualização a cada 30 min (`updatePeriodMillis`), o que cobre a virada do dia. Esse pedido chega para cada widget separadamente, e alguns celulares (Xiaomi/HyperOS) atrasam ou pulam alguns. Por isso, sempre que o handler roda para um widget, ele também atualiza os outros (`updateAllWidgets`).
-- Fora do app, o Android pede atualização a cada 30 min (`updatePeriodMillis`), o que cobre a virada do dia.
 - O handler roda sem o app aberto e abre o banco por conta própria (`widgetDb`).
 
 **Expo Go:** a biblioteca carrega o módulo nativo assim que é importada, e esse módulo não existe no Expo Go. Por isso ela só é carregada com `require` dentro de funções protegidas por `widgetsAvailable` (Android e fora do Expo Go). No Expo Go os widgets simplesmente não existem e o app funciona normal.
