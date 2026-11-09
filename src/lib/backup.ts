@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { createProfile, getProfile, getSchedule, setSchedule } from '@/db/queries';
+import { createProfile, getProfile, getSchedule, setSchedule, setSetting } from '@/db/queries';
 import type { ScheduleEntry } from './streak';
 import { PROFILE_TABLES } from '@/db/schema';
 import { PART_SECTIONS, dedupe, pickSections, type Part } from './planText';
@@ -17,7 +17,15 @@ export type BackupFile = {
   plan: Plan;
   data: Partial<Record<(typeof PROFILE_TABLES)[number], Record<string, unknown>[]>>;
   schedule?: ScheduleEntry[];
+  settings?: BackupSettings;
 };
+
+export type BackupSettings = { waterReminder?: Record<string, unknown>; workoutReminder?: Record<string, unknown> };
+
+const SETTING_KEYS = {
+  waterReminder: (pid: number) => `water_reminder:${pid}`,
+  workoutReminder: (pid: number) => `workout_reminder:${pid}`,
+} as const;
 
 const str = (v: unknown, fallback = '') => (typeof v === 'string' ? v : fallback);
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
@@ -28,6 +36,27 @@ const validSchedule = (v: unknown): ScheduleEntry[] =>
         .filter((e) => e && typeof e.since === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.since) && Array.isArray(e.weekdays))
         .map((e) => ({ since: e.since, weekdays: e.weekdays.filter((w: unknown) => typeof w === 'number' && w >= 0 && w <= 6) }))
     : [];
+const bool = (v: unknown) => (typeof v === 'boolean' ? v : undefined);
+
+const validReminder = (v: unknown, fields: Record<string, 'number' | 'boolean'>): Record<string, unknown> | undefined => {
+  if (!v || typeof v !== 'object') return undefined;
+  const out: Record<string, unknown> = {};
+  for (const [k, t] of Object.entries(fields)) {
+    const value = t === 'number' ? num((v as any)[k]) : bool((v as any)[k]);
+    if (value === undefined) return undefined;
+    out[k] = value;
+  }
+  return out;
+};
+
+export const validSettings = (v: unknown): BackupSettings => {
+  if (!v || typeof v !== 'object') return {};
+  const raw = v as Record<string, unknown>;
+  const water = validReminder(raw.waterReminder, { enabled: 'boolean', everyMin: 'number', fromMin: 'number', toMin: 'number' });
+  const workout = validReminder(raw.workoutReminder, { enabled: 'boolean', atMin: 'number' });
+  return { ...(water ? { waterReminder: water } : {}), ...(workout ? { workoutReminder: workout } : {}) };
+};
+
 const strArr = (v: unknown) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
 
 export function validatePlan(raw: unknown): Plan {
@@ -119,6 +148,7 @@ export async function makeBackup(db: SQLiteDatabase, pid: number): Promise<Backu
     plan: profile.plan,
     data,
     schedule: await getSchedule(db, pid),
+    settings: await readSettings(db, pid),
   };
 }
 
@@ -152,6 +182,22 @@ export async function restoreBackup(db: SQLiteDatabase, b: BackupFile, plan: Pla
     }
     const schedule = validSchedule(b.schedule);
     if (schedule.length > 0) await setSchedule(db, id, schedule);
+    const settings = validSettings(b.settings);
+    for (const key of Object.keys(SETTING_KEYS) as (keyof typeof SETTING_KEYS)[]) {
+      if (settings[key]) await setSetting(db, SETTING_KEYS[key](id), settings[key]);
+    }
   });
   return id;
+}
+
+async function readSettings(db: SQLiteDatabase, pid: number): Promise<BackupSettings> {
+  const out: BackupSettings = {};
+  for (const key of Object.keys(SETTING_KEYS) as (keyof typeof SETTING_KEYS)[]) {
+    const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM settings WHERE key = ?', SETTING_KEYS[key](pid));
+    if (!row) continue;
+    try {
+      out[key] = JSON.parse(row.value);
+    } catch {}
+  }
+  return validSettings(out);
 }

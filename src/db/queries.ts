@@ -54,7 +54,7 @@ export async function deleteProfile(db: SQLiteDatabase, id: number) {
   await db.withTransactionAsync(async () => {
     for (const t of PROFILE_TABLES) await db.runAsync(`DELETE FROM ${t} WHERE profile_id = ?`, id);
     await db.runAsync('DELETE FROM profiles WHERE id = ?', id);
-    await db.runAsync('DELETE FROM settings WHERE key IN (?, ?)', scheduleKey(id), `workout_reminder:${id}`);
+    await db.runAsync('DELETE FROM settings WHERE key IN (?, ?, ?)', scheduleKey(id), `workout_reminder:${id}`, `water_reminder:${id}`);
   });
 }
 

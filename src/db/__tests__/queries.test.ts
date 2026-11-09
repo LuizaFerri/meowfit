@@ -173,3 +173,26 @@ test('resetting workouts keeps the plan, diet, water and measurements', async ()
   expect((await q.getHabitChecks(db, pid, '2026-11-02')).size).toBe(1);
   expect((await q.getProfile(db, pid))?.plan.days).toHaveLength(5);
 });
+
+test('reminders travel with the backup and come back on restore', async () => {
+  const { db, pid } = await setup();
+  await q.setSetting(db, `water_reminder:${pid}`, { enabled: true, everyMin: 90, fromMin: 420, toMin: 1320 });
+  await q.setSetting(db, `workout_reminder:${pid}`, { enabled: true, atMin: 1080 });
+  const backup = await makeBackup(db, pid);
+  expect(backup.settings).toEqual({
+    waterReminder: { enabled: true, everyMin: 90, fromMin: 420, toMin: 1320 },
+    workoutReminder: { enabled: true, atMin: 1080 },
+  });
+  const parsed = parseJsonFile(JSON.stringify(backup));
+  if (parsed.kind !== 'backup') throw new Error('not a backup');
+  const copy = await restoreBackup(db, parsed.backup, parsed.plan, 'Cópia');
+  expect(await q.getSetting(db, `water_reminder:${copy}`, null)).toEqual({ enabled: true, everyMin: 90, fromMin: 420, toMin: 1320 });
+  expect(await q.getSetting(db, `workout_reminder:${copy}`, null)).toEqual({ enabled: true, atMin: 1080 });
+
+  const { settings: _s, ...old } = backup;
+  const oldCopy = await restoreBackup(db, { ...old, settings: { waterReminder: { enabled: 'sim' } } as never }, parsed.plan, 'Antigo');
+  expect(await q.getSetting(db, `water_reminder:${oldCopy}`, null)).toBeNull();
+
+  await q.deleteProfile(db, copy);
+  expect(await q.getSetting(db, `water_reminder:${copy}`, null)).toBeNull();
+});
