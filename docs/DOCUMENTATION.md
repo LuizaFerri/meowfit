@@ -19,6 +19,7 @@ MeowFit é um app Android, feito com React Native e Expo, para acompanhar treino
 13. [Como estender](#13-como-estender)
 14. [Widgets Android](#14-widgets-android)
 15. [Versão web (PWA para iPhone)](#15-versão-web-pwa-para-iphone)
+16. [Nuvem (Supabase)](#16-nuvem-supabase)
 
 ---
 
@@ -33,8 +34,9 @@ MeowFit é um app Android, feito com React Native e Expo, para acompanhar treino
 | Dieta | `/diet` | Metas, água, escolha da opção em cada refeição e adesão da semana. Uma opção com vários alimentos aparece como lista (nome em negrito e quantidade ao lado), e, se for a única opção, o botão vira "Segui o cardápio" |
 | Histórico da dieta | `/diet-history` | Um cartão por dia com cada refeição: opção do plano, o que foi comido fora do plano ou "Não registrado", além da adesão e da água do dia. Mostra 30 dias por vez (`buildDietHistory` em `src/lib/diet.ts`) |
 | Progresso | `/progress` | Checklist semanal de treinos e hábitos e o card do IMC (sem peso registrado, ele pede o peso e leva ao Perfil) |
-| Perfil | `/profile` | "Dados" (`ProfileInfoCard`): nome, altura, peso e cintura. "Editar" abre os quatro campos; ao salvar, peso ou cintura novos viram o registro de hoje (se já existe um hoje, ele é atualizado) e o teclado fecha. Abaixo, o histórico (`MeasuresSection`): gráficos de peso e cintura e a lista de registros, cada um com botões de editar (os campos abrem na própria linha) e apagar. Depois, meta de água (`WaterGoalCard`: 1,5 a 4 L ou outro valor), treino e dieta ("Editar", "Colar texto", "Enviar"), tema, lembrete de treino (`WorkoutReminderCard`, só no Android), backup, "Zerar treinos e sequência" (`resetWorkoutHistory`: apaga `workout_done`, `exercise_done` e `set_logs`, ou seja, sequência, recorde, treinos concluídos e cargas; plano, dieta, água, refeições, hábitos e medidas continuam) e "Apagar meus dados" (volta para as boas-vindas) |
-| Boas-vindas | `/new-profile` | Aparece quando não há perfil. Se já existe um perfil, a rota redireciona para `/` (por exemplo, um ícone da Tela de Início criado durante o cadastro), e criar ou restaurar confere no banco antes (`listProfiles`), então nunca nasce um segundo perfil. Abre numa tela de apresentação (`Welcome`: logo `logo-lilas` ou `logo-dark` conforme o tema, num círculo `#7E1DBE` igual nos dois temas; o que ele faz, "Criar meu cadastro" e "Já tenho um backup") e depois segue o cadastro em 3 etapas: você (nome, altura e peso), treino e dieta. Nas duas últimas, a pessoa escolhe entre "Item por item" (formulário) e "Colar texto", e pode pular. Também restaura um backup |
+| Perfil | `/profile` | "Dados" (`ProfileInfoCard`): nome, altura, peso e cintura. "Editar" abre os quatro campos; ao salvar, se a pessoa mexeu no peso ou na cintura (mesmo repetindo o valor anterior), vira o registro de hoje (se já existe um hoje, ele é atualizado; regra em `measurementToSave`, `src/lib/measures.ts`). Salvar só nome ou altura não cria medida. O teclado fecha. Abaixo, o histórico (`MeasuresSection`): gráficos de peso e cintura e a lista de registros, cada um com botões de editar (os campos abrem na própria linha) e apagar. Depois, meta de água (`WaterGoalCard`: 1,5 a 4 L ou outro valor), treino e dieta ("Editar", "Colar texto", "Enviar"), tema, lembrete de treino (`WorkoutReminderCard`, só no Android), backup, "Zerar treinos e sequência" (`resetWorkoutHistory`: apaga `workout_done`, `exercise_done` e `set_logs`, ou seja, sequência, recorde, treinos concluídos e cargas; plano, dieta, água, refeições, hábitos e medidas continuam) e "Apagar meus dados" (volta para as boas-vindas) |
+| Nuvem | `/cloud-login` | Login sem senha (e-mail → código de 6 dígitos) e ligação do aparelho com a conta; veja a seção 16 |
+| Boas-vindas | `/new-profile` | Aparece quando não há perfil. Se já existe um perfil, a rota redireciona para `/` (por exemplo, um ícone da Tela de Início criado durante o cadastro), e criar ou restaurar confere no banco antes (`listProfiles`), então nunca nasce um segundo perfil. Abre numa tela de apresentação (`Welcome`: logo `logo-lilas` ou `logo-dark` conforme o tema, num círculo `#7E1DBE` igual nos dois temas; o que ele faz, "Criar meu cadastro" e "Entrar com meu e-mail"; restaurar um arquivo de backup aparece depois do login, quando a conta ainda não tem dados na nuvem) e depois segue o cadastro em 3 etapas: você (nome, altura e peso), treino e dieta. Nas duas últimas, a pessoa escolhe entre "Item por item" (formulário) e "Colar texto", e pode pular. Também restaura um backup |
 | Editar plano | `/edit-plan` | `?parte=treino` ou `?parte=dieta` edita a parte com o `PartEditor`: "Item por item" ou "Colar texto". O botão "Salvar treino"/"Salvar dieta" fica fixo no rodapé, sempre visível. `&modo=texto` abre direto no texto, e `&novo=1` (aviso de troca de treino) grava `treinoSince` ao salvar |
 | Importar | `/import` | `?parte=treino` ou `?parte=dieta` importa só aquela parte, por texto ou arquivo. Somando `&modo=editar`, edita a parte como texto. Com `?modo=arquivo`, restaura um backup no lugar dos dados atuais. Abrir um arquivo de treino ou dieta recebido também passa por aqui |
 
@@ -144,6 +146,7 @@ Os campos de carga e repetições ficam em estado local. Eles são preenchidos u
 **Notificações** (plugin `expo-notifications` no `app.json`):
 - **Ícone pequeno** (`assets/notification-icon.png`): uma patinha branca em fundo transparente (96 px). O Android pinta esse ícone como silhueta, então ele não pode ser colorido. A cor de destaque é `#7044B8`.
 - **Sem ícone grande:** o Xiaomi/HyperOS já mostra o ícone do app à esquerda, e o ícone grande ficava repetido à direita, sempre alinhado ao topo (o Android não deixa centralizar sem layout próprio). Por isso o `largeIcon` saiu do plugin. A arte do sino (`design/notification-bell.png`) está guardada, mas ainda não é usada.
+- **Alarme exato:** o `app.json` declara `USE_EXACT_ALARM` (concedida automaticamente no Android 13+, permitida porque o app não está na Play Store) e `SCHEDULE_EXACT_ALARM` (versões anteriores). Sem elas, o `expo-notifications` agenda com `setAndAllowWhileIdle` (inexato), que o Android e principalmente o MIUI adiam ou descartam com o app fechado. O modo `delivery: 'alarmClock'` não é usado: ele deixa um ícone de alarme fixo na barra de status.
 - **Canais:** `water_alerts` (água), `workout_alerts` (lembrete de treino) e `rest` (fim do descanso) têm importância alta, para aparecer como balão no topo da tela.
   - O Android não deixa mudar a importância de um canal já criado. Para mudar, crie um canal com outro id e coloque o antigo em `LEGACY_CHANNELS` (`src/lib/notifications.ts`), que é apagado ao abrir o app. Foi o que aconteceu com o `water`, que era de importância padrão.
   - Em alguns celulares (Xiaomi/HyperOS, por exemplo), o balão também depende de ativar "Notificações flutuantes" para o app nas configurações do Android.
@@ -360,7 +363,7 @@ Na importação:
   - Hoje (ou a semana atual) só conta como falta depois que acaba.
   - Não há registro retroativo: treinos só podem ser marcados no próprio dia, então a sequência não pode ser "consertada" depois.
   - Estados: `feito` (chama cheia), `descanso` (chama cheia se há sequência), `pendente` (chama vazada), `risco` (uma falta; chama cinza e "hoje não pode faltar!") e `zerada` (duas faltas seguidas; chama cinza e a dica do mínimo viável: "só os 3 primeiros exercícios, uns 30 minutos").
-  - **Histórico dos dias de treino:** `settings` com a chave `schedule:<id>` guarda `[{ since, weekdays }]`. `recordSchedule` (`src/db/queries.ts`), chamado por `createProfile` e `savePlan`, acrescenta um item quando os dias fixos mudam (`nextSchedule`). O primeiro item usa `since: '0000-01-01'` com os dias de antes da troca, então perfis antigos também ficam certos na primeira troca. Para cada data, a sequência usa os dias válidos naquela época: trocar segunda/quarta/sexta por terça/quinta não transforma as terças e quintas antigas em faltas. O histórico entra no backup (campo opcional `schedule`). Atenção: `getSetting` mescla objetos, então listas são lidas direto (`getSchedule`).
+  - **Histórico dos dias de treino:** `settings` com a chave `schedule:<id>` guarda `[{ since, weekdays }]`. `recordSchedule` (`src/db/queries.ts`), chamado por `createProfile` e `savePlan`, acrescenta um item quando os dias fixos mudam (`nextSchedule`). O primeiro item usa `since: '0000-01-01'` com os dias de antes da troca, então perfis antigos também ficam certos na primeira troca. Para cada data, a sequência usa os dias válidos naquela época: trocar segunda/quarta/sexta por terça/quinta não transforma as terças e quintas antigas em faltas. O histórico entra no backup (campo opcional `schedule`), assim como os lembretes de água e de treino (campo opcional `settings`: `waterReminder` e `workoutReminder`, validados em `validSettings`). Ao restaurar, eles são regravados no perfil novo; backups antigos continuam válidos. Atenção: `getSetting` mescla objetos, então listas são lidas direto (`getSchedule`).
   - O recorde é a maior sequência do histórico, recalculada a cada vez a partir de todas as datas de `workout_done` (`getWorkoutDates`).
   - **Comemoração** (`src/lib/celebrate.ts`): ao concluir um treino ou registrar a caminhada, se a sequência cresceu, aparece "🔥 N treinos na sequência!", com "Novo recorde!" quando passa o recorde anterior.
 - **Caminhada no dia de descanso:** no "Hoje", o dia de descanso tem o botão "Fiz uma caminhada". Ele grava `workout_done` com o rótulo `WALK_LABEL` ("Caminhada", em `src/lib/workout.ts`), que conta como dia extra na sequência. A caminhada não é treino: não entra no "x de y treinos", no checklist da aba Progresso, no rodízio (`getLastWorkout` a ignora) nem no "Treino concluído" da sessão. Pode ser desfeita no mesmo dia. Em plano de rodízio não há dia de descanso, então o botão não aparece.
@@ -376,7 +379,7 @@ Na importação:
   - `treinoSince` é gravado ao importar treino, ao criar um perfil com treino , ao salvar o primeiro treino de um perfil que não tinha nenhum ou ao salvar pelo botão "Montar treino novo" do aviso de troca. Editar um treino que já existe (por formulário ou texto) não muda a data.
   - Em perfis antigos, sem `treinoSince`, conta a partir do primeiro treino concluído.
   - "Lembrar em 2 semanas" grava `treinoSnooze`. "Já troquei" reinicia a contagem.
-- **Lembretes de água** (`src/lib/water.ts` e `src/lib/notifications.ts`): configurados pelo sino do card de Água, por perfil (`settings`, chave `water_reminder:<id>`), com intervalo e janela de horário.
+- **Lembretes de água** (`src/lib/water.ts` e `src/lib/notifications.ts`): configurados pelo sino do card de Água, por perfil (`settings`, chave `water_reminder:<id>`), com intervalo e janela de horário. O painel do sino mostra o próximo lembrete agendado (`nextScheduled`), o botão "Testar lembrete" (`scheduleWaterTest`, notificação em 10 s no mesmo canal) e a dica de liberar a economia de bateria se o teste chegar e os agendados não.
   - O app agenda notificações locais para os próximos 7 dias e reagenda a cada copo registrado e sempre que é aberto.
   - No dia em que a meta é batida, os lembretes daquele dia são cancelados.
   - Se o app ficar mais de 7 dias sem ser aberto, os lembretes param até a próxima abertura.
@@ -507,3 +510,44 @@ npx eas-cli@latest deploy --prod
 ```
 
 Testar localmente: `npx expo export -p web` e depois `npx expo serve`.
+
+## 16. Nuvem (Supabase)
+
+O app continua local (SQLite em cada aparelho). A nuvem guarda uma **cópia de segurança** por pessoa: o mesmo JSON do "Exportar backup completo". Não há sincronização em tempo real entre aparelhos; o último aparelho que salvou é o que está na nuvem.
+
+**Projeto:** `https://hauxjtqiigjllxhlwkjs.supabase.co` (nome MeowFit, região escolhida na criação, RLS automático ligado). O app usa só a chave **publishable** (`src/lib/supabase.ts`), que pode ficar no código. A chave secreta e a senha do banco nunca entram no app.
+
+**Banco** (`supabase/schema.sql`, rodar no SQL Editor):
+- Tabela `cloud_backups`: `user_id` (chave, ligada a `auth.users`, apagada junto com a conta), `profile_name`, `data` (jsonb com o backup) e `updated_at`.
+- RLS ligada, com regras de select/insert/update/delete só para `authenticated` e só quando `auth.uid() = user_id`. O papel `anon` não tem acesso nenhum.
+
+**Login:** sem senha. `signInWithOtp` manda um código numérico (6 a 8 dígitos, conforme o projeto; este gera 8, e o app aceita de 6 a 10) (o modelo "Magic Link" do Supabase precisa usar `{{ .Token }}`; o texto está em `supabase/email-code.html`; ele é usado nos modelos **Confirm signup**, enviado no primeiro acesso, e **Magic Link**, nos seguintes. Assunto: `{{ .Token }} é seu código do MeowFit`. O código no assunto e numa primeira linha oculta de prévia faz o Android e o iPhone oferecerem "Copiar código" na notificação; o campo do app usa `autoComplete="one-time-code"`) e `verifyOtp({ type: 'email' })` confere. O código vale 1 hora, e só dá para pedir outro a cada 60 s. A sessão fica guardada no aparelho (Android: `expo-sqlite/localStorage`; web: `localStorage` do navegador) por um adaptador que não quebra na geração das páginas da web (`safeStorage`). O cliente é criado só quando usado (`getSupabase()`), porque o export da web roda o app no Node, onde acessar `localStorage` dá erro.
+
+**Ligação aparelho ↔ conta** (`src/lib/cloud.ts`, `src/lib/cloudLogic.ts`, tela `src/app/cloud-login.tsx`): `settings` com a chave `cloud_link` guarda `{ userId, pid }`. Depois do código, `decideLink` escolhe:
+- **Aparelho com dados e nuvem vazia** (`upload`): confirma "Os dados de NOME serão guardados na conta EMAIL" e envia.
+- **Aparelho vazio e nuvem com dados** (`restore`, pelas boas-vindas): restaura direto.
+- **Os dois com dados** (`choose`): mostra os dois lados (nome e data da nuvem) e pergunta: "Usar os da nuvem" (substitui o aparelho) ou "Enviar os deste aparelho" (pede uma segunda confirmação antes de substituir a nuvem). Nada é juntado.
+- **Os dois vazios** (`signup`): a tela mostra "Conta pronta" com "Criar meu cadastro" (abre `/new-profile?inicio=cadastro`, direto no formulário) e "Restaurar de um arquivo de backup" (só aceita backup completo; plano solto pede para cadastrar e importar depois). Nos dois casos, o perfil já nasce ligado à conta e é enviado.
+
+**Convite no cadastro:** ao concluir o cadastro sem estar conectado, aparece "Salvar na nuvem? ☁️" ("Agora não" / "Salvar com meu e-mail", que abre `/cloud-login`). Quem já entrou antes de se cadastrar não vê o convite, porque o perfil já nasce ligado à conta.
+
+**Direção dos dados:** aparelho → nuvem é automático. Nuvem → aparelho só acontece no login (aparelho vazio, ou "Usar os da nuvem"). Não há atualização contínua nos dois sentidos: com dois aparelhos em uso, a nuvem fica com o último que salvou.
+
+**Envio automático:** com o aparelho ligado à conta, o `_layout.tsx` envia 4 s depois de qualquer mudança (`rev`) e quando o app vai para segundo plano. Sem internet, o card mostra o erro e a próxima mudança tenta de novo.
+
+**Estado da sincronização** (`settings`, chave `cloud_sync` = `{ syncedAt, signature }`): `syncedAt` é o `updated_at` da última versão que este aparelho enviou ou recebeu; `signature` é um hash curto do backup (`backupHash`, que ignora `exportedAt`). Como fica salvo, abrir o app não reenvia dados iguais. "Salvar agora" reenvia mesmo sem mudança.
+
+**Conflito entre aparelhos:** o envio normal é condicional: `update … where user_id = uid and updated_at = syncedAt`. Se nenhuma linha muda, outro aparelho salvou depois: o estado vira `conflict`, nada é sobrescrito e o envio automático para. Ao abrir o app e ao voltar para ele, `checkCloud` compara o `updated_at` da nuvem com `syncedAt` (`cloudConflict`, com 1 s de folga). O card "Nuvem" mostra "Outro aparelho salvou dados mais novos…" com "Usar os da nuvem" (restaura e troca os dados do aparelho) ou "Enviar os deste aparelho" (pede confirmação e sobrescreve com `upsert`). Aparelhos ligados antes dessa regra (sem `syncedAt`) fazem um `upsert` no primeiro envio e passam a ser controlados.
+
+**Troca de perfil:** restaurar um backup pelo Perfil (`import.tsx`) cria um perfil novo; `relinkIfLinked` religa a conta ao perfil novo e envia, para a nuvem não ficar parada.
+
+**Apagar:** com a nuvem conectada, "Apagar meus dados" pergunta "Apagar só deste aparelho" (a cópia da nuvem continua e volta ao entrar de novo) ou "Apagar também da nuvem" (segunda confirmação; chama `deleteCloudBackup`). Nos dois casos o aparelho sai da conta.
+
+**Reenviar código:** o botão mostra "Reenviar em N s" por 60 s, porque o Supabase só aceita um pedido por minuto.
+
+**Perfil → card "Nuvem"** (`CloudCard`): sem conta, "Entrar com meu e-mail"; ligado, o e-mail, "Salvo hoje às HH:MM", "Salvar agora" e "Sair" (o aparelho para de enviar; os dados ficam no aparelho e na nuvem). "Apagar meus dados" também sai da conta; a cópia da nuvem continua e volta entrando de novo.
+
+**Ler o arquivo escolhido** (`pickTextFile` em `src/lib/files.ts`): tenta a API nova do `expo-file-system`, depois a `expo-file-system/legacy` e por fim `fetch` no endereço. No Expo Go, a cópia do seletor de arquivos fica fora da área do projeto e a API nova recusa com "Missing 'READ' permission".
+
+**Testar a segurança:** com a tabela criada, uma consulta só com a chave publishable (sem login) não pode devolver linhas; e duas contas diferentes não podem ler a linha uma da outra.
+
