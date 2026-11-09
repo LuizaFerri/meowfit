@@ -8,6 +8,7 @@ import { HeaderBanner } from '@/components/HeaderBanner';
 import { space } from '@/components/theme';
 import { WaterCard } from '@/components/WaterCard';
 import { StreakCard } from '@/components/StreakCard';
+import { ApkUpdateCard } from '@/components/ApkUpdateCard';
 import { computeStreak } from '@/lib/streak';
 import {
   exKey,
@@ -110,6 +111,8 @@ export default function Today() {
       <View style={{ marginHorizontal: -space.lg, marginTop: -space.lg }}>
         <HeaderBanner name={profile.name} subtitle={capitalize(fmtLong(date))} />
       </View>
+
+      <ApkUpdateCard />
 
       {streak && <StreakCard streak={streak} walked={walkedToday && !doneToday} />}
 
