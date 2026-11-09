@@ -1,4 +1,4 @@
-import { Stack, router } from 'expo-router';
+import { Redirect, Stack, router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, View } from 'react-native';
@@ -7,7 +7,7 @@ import { Welcome } from '@/components/Welcome';
 import { Body, Button, Card, Field, Row, Screen, parseNum } from '@/components/ui';
 import { parseHeightCm } from '@/lib/format';
 import { useTheme } from '@/components/ThemeProvider';
-import { addMeasurement, createProfile } from '@/db/queries';
+import { addMeasurement, createProfile, listProfiles } from '@/db/queries';
 import { Alert } from '@/lib/alert';
 import { parseJsonFile, restoreBackup } from '@/lib/backup';
 import { todayKey } from '@/lib/dates';
@@ -22,6 +22,7 @@ const STEPS = ['Você', 'Treino', 'Dieta'];
 export default function NewProfile() {
   const db = useSQLiteContext();
   const switchTo = useApp((s) => s.switchTo);
+  const hasProfile = useApp((s) => s.profile !== null);
   const [welcome, setWelcome] = useState(true);
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
@@ -32,6 +33,14 @@ export default function NewProfile() {
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<EditMode>('form');
 
+  if (hasProfile && !busy) return <Redirect href="/" />;
+
+  const alreadyHasProfile = async () => {
+    if ((await listProfiles(db)).length === 0) return false;
+    router.replace('/');
+    return true;
+  };
+
   const next = () => {
     if (step === 0 && !name.trim()) return Alert.alert('Nome', 'Digite seu nome para continuar.');
     setStep(step + 1);
@@ -40,6 +49,7 @@ export default function NewProfile() {
   async function finish() {
     setBusy(true);
     try {
+      if (await alreadyHasProfile()) return;
       const base = { ...emptyPlan(), ...fromWorkoutDraft(workout), ...fromDietDraft(diet) };
       const plan = base.days.length > 0 ? stampTreino(base, todayKey()) : base;
       const id = await createProfile(db, name.trim(), parseHeightCm(height), plan);
@@ -58,6 +68,7 @@ export default function NewProfile() {
     try {
       const file = await pickTextFile();
       if (!file) return;
+      if (await alreadyHasProfile()) return;
       const parsed = parseJsonFile(file.text);
       setBusy(true);
       const id =
