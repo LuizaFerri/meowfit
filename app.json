@@ -2,7 +2,7 @@
   "expo": {
     "name": "MeowFit",
     "slug": "meowfit",
-    "version": "1.2.2",
+    "version": "1.3.0",
     "scheme": "meowfit",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
