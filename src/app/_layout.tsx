@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { Loading } from '@/components/ui';
 import { migrate } from '@/db/schema';
@@ -11,6 +11,7 @@ import { refreshWidgets } from '@/widgets';
 import { ThemeProvider, useTheme } from '@/components/ThemeProvider';
 import { DialogHost } from '@/components/DialogHost';
 import { AnimatedSplash } from '@/components/AnimatedSplash';
+import { DatabaseError } from '@/components/DatabaseError';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { NavigationBar } from 'expo-navigation-bar';
@@ -38,7 +39,9 @@ function Gate() {
   }, [db, loadActive]);
 
   useEffect(() => {
-    if (Platform.OS === 'web') navigator.storage?.persist?.().catch(() => {});
+    if (Platform.OS !== 'web') return;
+    navigator.storage?.persist?.().catch(() => {});
+    webRetries.set(0);
   }, []);
 
   const bump = useApp((s) => s.bump);
@@ -110,9 +113,56 @@ function ThemedStatusBar() {
   );
 }
 
+const AUTO_RETRIES = 3;
+const RETRY_KEY = 'meowfit-db-retries';
+
+const webRetries = {
+  get: () => {
+    try {
+      return Number(window.sessionStorage.getItem(RETRY_KEY) ?? 0);
+    } catch {
+      return AUTO_RETRIES;
+    }
+  },
+  set: (n: number) => {
+    try {
+      if (n === 0) window.sessionStorage.removeItem(RETRY_KEY);
+      else window.sessionStorage.setItem(RETRY_KEY, String(n));
+    } catch {}
+  },
+};
+
 export default function RootLayout() {
+  const [attempt, setAttempt] = useState(0);
+  const [failed, setFailed] = useState(false);
+
+  const onError = () => {
+    if (Platform.OS === 'web') {
+      const n = webRetries.get();
+      if (n < AUTO_RETRIES) {
+        webRetries.set(n + 1);
+        setTimeout(() => window.location.reload(), 800);
+      } else setFailed(true);
+      return;
+    }
+    if (attempt < AUTO_RETRIES) setTimeout(() => setAttempt((a) => a + 1), 1000);
+    else setFailed(true);
+  };
+
+  const retry = () => {
+    if (Platform.OS === 'web') {
+      webRetries.set(0);
+      window.location.reload();
+    } else {
+      setFailed(false);
+      setAttempt(0);
+    }
+  };
+
+  if (failed) return <DatabaseError onRetry={retry} />;
+
   return (
-    <SQLiteProvider databaseName="sculpt.db" onInit={migrate}>
+    <SQLiteProvider key={attempt} databaseName="sculpt.db" onInit={migrate} onError={onError}>
       <ThemeProvider>
         <ThemedStatusBar />
         <Gate />
