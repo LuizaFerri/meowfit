@@ -3,6 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { Alert } from '@/lib/alert';
 import { Body, Button, Card, Chip, Row, Screen, Subtitle } from '@/components/ui';
 import { deleteProfile, listProfiles, resetWorkoutHistory } from '@/db/queries';
+import { appVersionLabel } from '@/lib/appVersion';
 import { makeBackup, makePlanFile } from '@/lib/backup';
 import type { Part } from '@/lib/planText';
 import { todayKey } from '@/lib/dates';
@@ -159,6 +160,9 @@ export default function ProfileTab() {
       <Button variant="danger" label="Apagar meus dados" icon="trash-outline" onPress={remove} />
       <Body muted style={{ textAlign: 'center', fontSize: 12, color: colors.muted }}>
         MeowFit · dados neste aparelho e, se conectado, na nuvem
+      </Body>
+      <Body muted style={{ textAlign: 'center', fontSize: 12, color: colors.muted, marginTop: -8 }}>
+        {appVersionLabel()}
       </Body>
     </Screen>
   );
