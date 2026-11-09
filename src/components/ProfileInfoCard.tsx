@@ -5,8 +5,9 @@ import { addMeasurement, getMeasurements, updateMeasurement, updateProfile } fro
 import { Alert } from '@/lib/alert';
 import { todayKey } from '@/lib/dates';
 import { fmtHeightM, parseHeightCm } from '@/lib/format';
+import { measurementToSave } from '@/lib/measures';
 import { useApp, useData, useProfile } from '@/store/useApp';
-import { Button, Card, Field, Row, Subtitle, fmtNum, parseNum } from './ui';
+import { Button, Card, Field, Row, Subtitle, fmtNum } from './ui';
 import { useTheme } from './ThemeProvider';
 
 export function ProfileInfoCard() {
@@ -19,6 +20,7 @@ export function ProfileInfoCard() {
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
   const [waist, setWaist] = useState('');
+  const [touched, setTouched] = useState(false);
 
   const list = measures ?? [];
   const lastWeight = [...list].reverse().find((m) => m.weight_kg !== null)?.weight_kg ?? null;
@@ -29,6 +31,7 @@ export function ProfileInfoCard() {
     setHeight(fmtNum(profile.height_cm));
     setWeight(fmtNum(lastWeight));
     setWaist(fmtNum(lastWaist));
+    setTouched(false);
     setEditing(true);
   };
 
@@ -36,14 +39,12 @@ export function ProfileInfoCard() {
     try {
       if (!name.trim()) throw new Error('O nome não pode ficar vazio.');
       Keyboard.dismiss();
-      const w = parseNum(weight);
-      const c = parseNum(waist);
-      const changed = (w !== null && w !== lastWeight) || (c !== null && c !== lastWaist);
+      const measure = measurementToSave({ weight, waist, touched });
       await updateProfile(db, profile.id, name.trim(), parseHeightCm(height));
-      if (changed) {
+      if (measure) {
         const today = list.find((m) => m.date === todayKey());
-        if (today) await updateMeasurement(db, today.id, w ?? today.weight_kg, c ?? today.waist_cm);
-        else await addMeasurement(db, profile.id, todayKey(), w, c);
+        if (today) await updateMeasurement(db, today.id, measure.weight ?? today.weight_kg, measure.waist ?? today.waist_cm);
+        else await addMeasurement(db, profile.id, todayKey(), measure.weight, measure.waist);
       }
       await loadActive(db);
       setEditing(false);
@@ -63,8 +64,8 @@ export function ProfileInfoCard() {
           <Field label="Nome" value={name} onChangeText={setName} autoFocus />
           <Row>
             <Field flex label="Altura (cm)" value={height} onChangeText={setHeight} keyboardType="decimal-pad" placeholder="Ex.: 165" />
-            <Field flex label="Peso (kg)" value={weight} onChangeText={setWeight} keyboardType="decimal-pad" placeholder="Ex.: 63" />
-            <Field flex label="Cintura (cm)" value={waist} onChangeText={setWaist} keyboardType="decimal-pad" placeholder="Ex.: 75" />
+            <Field flex label="Peso (kg)" value={weight} onChangeText={(v) => (setWeight(v), setTouched(true))} keyboardType="decimal-pad" placeholder="Ex.: 63" />
+            <Field flex label="Cintura (cm)" value={waist} onChangeText={(v) => (setWaist(v), setTouched(true))} keyboardType="decimal-pad" placeholder="Ex.: 75" />
           </Row>
           <Row style={{ marginTop: 4 }}>
             <Button small variant="ghost" label="Cancelar" onPress={() => setEditing(false)} style={{ flex: 1 }} />
