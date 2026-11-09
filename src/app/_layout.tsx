@@ -12,6 +12,7 @@ import { ThemeProvider, useTheme } from '@/components/ThemeProvider';
 import { DialogHost } from '@/components/DialogHost';
 import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { DatabaseError } from '@/components/DatabaseError';
+import { checkCloud, startCloud, syncIfLinked, useCloud } from '@/lib/cloud';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { NavigationBar } from 'expo-navigation-bar';
@@ -77,6 +78,28 @@ function Gate() {
     return () => clearTimeout(id);
   }, [db, pid, loaded, rev]);
 
+  useEffect(() => {
+    startCloud(db).catch(() => {});
+  }, [db]);
+
+  const cloudUser = useCloud((s) => s.userId);
+  const cloudLink = useCloud((s) => s.link);
+  useEffect(() => {
+    if (!loaded || !cloudUser || !cloudLink) return;
+    checkCloud(db, pid);
+    const sub = AppState.addEventListener('change', (st) => st === 'active' && checkCloud(db, pid));
+    return () => sub.remove();
+  }, [db, pid, loaded, cloudUser, cloudLink]);
+  useEffect(() => {
+    if (!loaded || !cloudUser || !cloudLink) return;
+    const id = setTimeout(() => syncIfLinked(db, pid).catch(() => {}), 4000);
+    const sub = AppState.addEventListener('change', (st) => st !== 'active' && syncIfLinked(db, pid).catch(() => {}));
+    return () => {
+      clearTimeout(id);
+      sub.remove();
+    };
+  }, [db, pid, loaded, rev, cloudUser, cloudLink]);
+
   if (!loaded) return <Loading />;
 
   return (
@@ -93,6 +116,7 @@ function Gate() {
       <Stack.Screen name="new-profile" options={{ title: 'Boas-vindas' }} />
       <Stack.Screen name="import" options={{ title: 'Importar' }} />
       <Stack.Screen name="edit-plan" options={{ title: 'Editar' }} />
+      <Stack.Screen name="cloud-login" options={{ title: 'Nuvem' }} />
       <Stack.Screen name="workout/[day]" options={{ title: 'Treino' }} />
       <Stack.Screen name="exercise/[name]" options={{ title: 'Evolução' }} />
       <Stack.Screen name="diet-history" options={{ title: 'Histórico da dieta' }} />

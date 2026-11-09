@@ -8,6 +8,7 @@ import { radius } from '@/components/theme';
 import { Body, Button, Card, Chip, Row, Screen, Subtitle } from '@/components/ui';
 import { deleteProfile, savePlan } from '@/db/queries';
 import { parseJsonFile, restoreBackup, type BackupFile } from '@/lib/backup';
+import { relinkIfLinked } from '@/lib/cloud';
 import { pickTextFile } from '@/lib/files';
 import {
   ALL_SECTIONS,
@@ -139,6 +140,7 @@ export default function Import() {
               const id = await restoreBackup(db, backup, preview.incoming);
               await deleteProfile(db, profile.id);
               await switchTo(db, id);
+              await relinkIfLinked(db, profile.id, id).catch(() => {});
               router.dismissTo('/');
             } catch (e) {
               Alert.alert('Não foi possível restaurar', (e as Error).message);

@@ -14,7 +14,7 @@ const FEATURES: { icon: IconName; title: string; text: string }[] = [
   { icon: 'trending-up-outline', title: 'Seu progresso', text: 'Peso, cintura e checklist da semana.' },
 ];
 
-export function Welcome({ onStart, onRestore, busy }: { onStart: () => void; onRestore: () => void; busy?: boolean }) {
+export function Welcome({ onStart, onCloud, busy }: { onStart: () => void; onCloud: () => void; busy?: boolean }) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -92,10 +92,10 @@ export function Welcome({ onStart, onRestore, busy }: { onStart: () => void; onR
 
       <View style={{ gap: 10 }}>
         <Button label="Criar meu cadastro" icon="paw" onPress={onStart} disabled={busy} />
-        <Button variant="ghost" label="Já tenho um backup" icon="folder-open-outline" onPress={onRestore} disabled={busy} />
+        <Button variant="secondary" label="Entrar com meu e-mail" icon="cloud-download-outline" onPress={onCloud} disabled={busy} />
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 }}>
           <Ionicons name="lock-closed-outline" size={14} color={colors.muted} />
-          <Text style={{ fontSize: 12, color: colors.muted }}>Seus dados ficam só neste celular.</Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>Seus dados ficam neste aparelho e, se você quiser, na nuvem.</Text>
         </View>
       </View>
     </ScrollView>

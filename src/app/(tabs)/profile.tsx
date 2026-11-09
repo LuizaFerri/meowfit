@@ -14,6 +14,8 @@ import { MeasuresSection } from '@/components/MeasuresSection';
 import { WaterGoalCard } from '@/components/WaterGoalCard';
 import { useTheme } from '@/components/ThemeProvider';
 import { ProfileInfoCard } from '@/components/ProfileInfoCard';
+import { CloudCard } from '@/components/CloudCard';
+import { deleteCloudBackup, signOut, useCloud } from '@/lib/cloud';
 
 export default function ProfileTab() {
   const { colors } = useTheme();
@@ -38,23 +40,44 @@ export default function ProfileTab() {
     shareJson(`backup-${safeFileName(profile.name)}-${todayKey()}.json`, await makeBackup(db, profile.id)),
   );
 
-  const remove = () =>
+  const wipe = (alsoCloud: boolean) =>
+    run(async () => {
+      if (alsoCloud) await deleteCloudBackup();
+      if (useCloud.getState().link || alsoCloud) await signOut(db);
+      await deleteProfile(db, profile.id);
+      const next = (profiles ?? []).find((p) => p.id !== profile.id);
+      await switchTo(db, next?.id ?? null);
+    })();
+
+  const remove = () => {
+    const linked = !!useCloud.getState().link && !!useCloud.getState().userId;
+    if (!linked)
+      return Alert.alert(
+        'Apagar meus dados?',
+        'Apaga treino, dieta, cargas, medidas e todo o histórico deste celular, e o app volta para o cadastro inicial. Se quiser guardar, exporte um backup antes.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Apagar tudo', style: 'destructive', onPress: () => wipe(false) },
+        ],
+      );
     Alert.alert(
       'Apagar meus dados?',
-      'Apaga treino, dieta, cargas, medidas e todo o histórico deste celular, e o app volta para o cadastro inicial. Se quiser guardar, exporte um backup antes.',
+      'Este aparelho está conectado à nuvem. Quer apagar só deste aparelho (a cópia na nuvem continua e volta quando você entrar de novo) ou também da nuvem?',
       [
         { text: 'Cancelar', style: 'cancel' },
+        { text: 'Apagar só deste aparelho', onPress: () => wipe(false) },
         {
-          text: 'Apagar tudo',
+          text: 'Apagar também da nuvem',
           style: 'destructive',
-          onPress: run(async () => {
-            await deleteProfile(db, profile.id);
-            const next = (profiles ?? []).find((p) => p.id !== profile.id);
-            await switchTo(db, next?.id ?? null);
-          }),
+          onPress: () =>
+            Alert.alert('Apagar também da nuvem?', 'A cópia salva na nuvem será apagada e não poderá ser recuperada.', [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Apagar tudo', style: 'destructive', onPress: () => wipe(true) },
+            ]),
         },
       ],
     );
+  };
 
   const resetWorkouts = () =>
     Alert.alert(
@@ -91,6 +114,8 @@ export default function ProfileTab() {
 
       <ProfileInfoCard />
 
+      <CloudCard />
+
       <MeasuresSection />
 
       <PartCard
@@ -118,8 +143,8 @@ export default function ProfileTab() {
       <Card>
         <Subtitle>Backup</Subtitle>
         <Body muted style={{ fontSize: 13 }}>
-          Os dados ficam só neste celular. Exporte um backup de vez em quando (pro Drive, WhatsApp…) para não perder nada ao trocar
-          de aparelho.
+          Além da nuvem, você pode exportar um arquivo de backup (pro Drive, WhatsApp…) para guardar uma cópia ou levar a outro
+          aparelho.
         </Body>
         <Button variant="secondary" label="Exportar backup completo" icon="cloud-upload-outline" onPress={exportBackup} />
         <Button
@@ -133,7 +158,7 @@ export default function ProfileTab() {
       <Button variant="ghost" label="Zerar treinos e sequência" icon="refresh-outline" onPress={resetWorkouts} />
       <Button variant="danger" label="Apagar meus dados" icon="trash-outline" onPress={remove} />
       <Body muted style={{ textAlign: 'center', fontSize: 12, color: colors.muted }}>
-        MeowFit · dados salvos só neste celular
+        MeowFit · dados neste aparelho e, se conectado, na nuvem
       </Body>
     </Screen>
   );

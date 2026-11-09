@@ -1,4 +1,4 @@
-import { Redirect, Stack, router } from 'expo-router';
+import { Redirect, Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, View } from 'react-native';
@@ -9,13 +9,12 @@ import { parseHeightCm } from '@/lib/format';
 import { useTheme } from '@/components/ThemeProvider';
 import { addMeasurement, createProfile, listProfiles } from '@/db/queries';
 import { Alert } from '@/lib/alert';
-import { parseJsonFile, restoreBackup } from '@/lib/backup';
 import { todayKey } from '@/lib/dates';
-import { pickTextFile } from '@/lib/files';
 import { fromDietDraft, fromWorkoutDraft, toDietDraft, toWorkoutDraft } from '@/lib/planForm';
 import { emptyPlan } from '@/lib/types';
 import { stampTreino } from '@/lib/workout';
 import { useApp } from '@/store/useApp';
+import { linkAndUpload, useCloud } from '@/lib/cloud';
 
 const STEPS = ['Você', 'Treino', 'Dieta'];
 
@@ -23,7 +22,8 @@ export default function NewProfile() {
   const db = useSQLiteContext();
   const switchTo = useApp((s) => s.switchTo);
   const hasProfile = useApp((s) => s.profile !== null);
-  const [welcome, setWelcome] = useState(true);
+  const { inicio } = useLocalSearchParams<{ inicio?: string }>();
+  const [welcome, setWelcome] = useState(inicio !== 'cadastro');
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [height, setHeight] = useState('');
@@ -56,34 +56,20 @@ export default function NewProfile() {
       const kg = parseNum(weight);
       if (kg !== null && kg > 0) await addMeasurement(db, id, todayKey(), kg, null);
       await switchTo(db, id);
+      const signedIn = !!useCloud.getState().userId;
+      if (signedIn) await linkAndUpload(db, id).catch(() => {});
       router.dismissTo('/');
+      if (!signedIn)
+        Alert.alert(
+          'Salvar na nuvem? ☁️',
+          'Entrando com seu e-mail, seus dados ficam guardados e voltam se você trocar de celular ou usar em outro aparelho. Sem senha: só um código no e-mail.',
+          [
+            { text: 'Agora não', style: 'cancel' },
+            { text: 'Salvar com meu e-mail', onPress: () => router.push({ pathname: '/cloud-login', params: { origem: 'perfil' } }) },
+          ],
+        );
     } catch (e) {
       Alert.alert('Não foi possível criar o perfil', (e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function restore() {
-    try {
-      const file = await pickTextFile();
-      if (!file) return;
-      if (await alreadyHasProfile()) return;
-      const parsed = parseJsonFile(file.text);
-      setBusy(true);
-      const id =
-        parsed.kind === 'backup'
-          ? await restoreBackup(db, parsed.backup, parsed.plan)
-          : await createProfile(
-              db,
-              name.trim() || 'Meu perfil',
-              parseHeightCm(height),
-              parsed.plan.treinoSince ? parsed.plan : stampTreino(parsed.plan, todayKey()),
-            );
-      await switchTo(db, id);
-      router.dismissTo('/');
-    } catch (e) {
-      Alert.alert('Não foi possível abrir o arquivo', (e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -97,7 +83,11 @@ export default function NewProfile() {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
-        <Welcome onStart={() => setWelcome(false)} onRestore={restore} busy={busy} />
+        <Welcome
+          onStart={() => setWelcome(false)}
+          onCloud={() => router.push({ pathname: '/cloud-login', params: { origem: 'boas-vindas' } })}
+          busy={busy}
+        />
       </>
     );
   }
