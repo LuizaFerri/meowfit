@@ -5,7 +5,7 @@ import { Pressable, Switch, View } from 'react-native';
 import { Alert } from '@/lib/alert';
 import { addWater, getSetting, getWater, setSetting } from '@/db/queries';
 import { todayKey } from '@/lib/dates';
-import { ensurePermission, nextScheduled, notificationsAvailable, scheduleWaterTest, syncWaterReminders, waterKey } from '@/lib/notifications';
+import { ensurePermission, nextScheduled, notificationsAvailable, syncWaterReminders, waterKey } from '@/lib/notifications';
 import { DEFAULT_WATER_REMINDER, fmtClock, type WaterReminder } from '@/lib/water';
 import { useData, useProfile, useWrite } from '@/store/useApp';
 import { Body, Button, Card, Chip, ProgressBar, Row, Subtitle, fmtNum } from './ui';
@@ -76,14 +76,6 @@ export function WaterCard() {
     await setSetting(db, waterKey(profile.id), next);
     await syncWaterReminders(db, profile.id);
     setNextAt(await nextScheduled('water').catch(() => null));
-  };
-
-  const test = async () => {
-    if (!(await ensurePermission())) {
-      return Alert.alert('Notificações bloqueadas', 'Libere as notificações do app nas configurações do Android.');
-    }
-    await scheduleWaterTest(10);
-    Alert.alert('Teste agendado', 'Saia do app ou bloqueie a tela: a notificação chega em 10 segundos.');
   };
 
   return (
@@ -164,10 +156,10 @@ export function WaterCard() {
                     ? `Próximo lembrete: ${fmtNext(nextAt)}`
                     : 'Nenhum lembrete agendado agora.'}
               </Body>
-              <Button small variant="ghost" icon="notifications-outline" label="Testar lembrete" onPress={test} />
               <Body muted style={{ fontSize: 12 }}>
-                Se o teste chega mas os lembretes não, o celular está segurando o app para economizar bateria: em Configurações → Apps →
-                MeowFit → Economia de bateria, escolha “Sem restrições” (no Xiaomi, ative também o “Início automático”).
+                Se os lembretes não chegam com o app fechado, o celular pode estar segurando o app para economizar bateria: em
+                Configurações → Apps → MeowFit → Economia de bateria, escolha “Sem restrições” (no Xiaomi, ative também o “Início
+                automático”).
               </Body>
             </>
           )}

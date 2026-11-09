@@ -379,7 +379,7 @@ Na importação:
   - `treinoSince` é gravado ao importar treino, ao criar um perfil com treino , ao salvar o primeiro treino de um perfil que não tinha nenhum ou ao salvar pelo botão "Montar treino novo" do aviso de troca. Editar um treino que já existe (por formulário ou texto) não muda a data.
   - Em perfis antigos, sem `treinoSince`, conta a partir do primeiro treino concluído.
   - "Lembrar em 2 semanas" grava `treinoSnooze`. "Já troquei" reinicia a contagem.
-- **Lembretes de água** (`src/lib/water.ts` e `src/lib/notifications.ts`): configurados pelo sino do card de Água, por perfil (`settings`, chave `water_reminder:<id>`), com intervalo e janela de horário. O painel do sino mostra o próximo lembrete agendado (`nextScheduled`), o botão "Testar lembrete" (`scheduleWaterTest`, notificação em 10 s no mesmo canal) e a dica de liberar a economia de bateria se o teste chegar e os agendados não.
+- **Lembretes de água** (`src/lib/water.ts` e `src/lib/notifications.ts`): configurados pelo sino do card de Água, por perfil (`settings`, chave `water_reminder:<id>`), com intervalo e janela de horário. O painel do sino mostra o próximo lembrete agendado (`nextScheduled`) e a dica de liberar a economia de bateria se os lembretes não chegarem com o app fechado.
   - O app agenda notificações locais para os próximos 7 dias e reagenda a cada copo registrado e sempre que é aberto.
   - No dia em que a meta é batida, os lembretes daquele dia são cancelados.
   - Se o app ficar mais de 7 dias sem ser aberto, os lembretes param até a próxima abertura.

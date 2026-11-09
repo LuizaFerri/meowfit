@@ -178,11 +178,3 @@ export async function nextScheduled(kind: 'water' | 'workout'): Promise<Date | n
     .sort((a, b) => a - b);
   return times.length ? new Date(times[0]) : null;
 }
-
-export async function scheduleWaterTest(seconds = 10) {
-  if (!notificationsAvailable) return;
-  await Notifications.scheduleNotificationAsync({
-    content: { title: 'Água 💧', body: 'Teste do lembrete: se você está vendo isso, os lembretes de água funcionam.', data: { kind: 'water-test' } },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds, channelId: WATER_CHANNEL },
-  });
-}
