@@ -20,6 +20,7 @@ MeowFit é um app Android, feito com React Native e Expo, para acompanhar treino
 14. [Widgets Android](#14-widgets-android)
 15. [Versão web (PWA para iPhone)](#15-versão-web-pwa-para-iphone)
 16. [Nuvem (Supabase)](#16-nuvem-supabase)
+17. [Atualizações (EAS Update e APK novo)](#17-atualizações-eas-update-e-apk-novo)
 
 ---
 
@@ -433,7 +434,7 @@ npx eas-cli@latest build -p android --profile preview
 2. Quando o build terminar, abra o link ou leia o QR code no celular e baixe o `.apk`.
 3. Permita "instalar apps desconhecidos" e instale.
 
-Para atualizar o app, gere um novo build com a mesma conta. Ele instala por cima e mantém os dados. Antes de publicar uma nova versão, aumente `version` em `app.json`.
+Para atualizar o app, gere um novo build com a mesma conta. Ele instala por cima e mantém os dados. Antes de publicar uma nova versão, aumente `version` em `app.json`. Mudanças só de código não precisam de APK: veja a [seção 17](#17-atualizações-eas-update-e-apk-novo).
 
 ## 13. Como estender
 
@@ -552,3 +553,30 @@ O app continua local (SQLite em cada aparelho). A nuvem guarda uma **cópia de s
 
 **Testar a segurança:** com a tabela criada, uma consulta só com a chave publishable (sem login) não pode devolver linhas; e duas contas diferentes não podem ler a linha uma da outra.
 
+
+## 17. Atualizações (EAS Update e APK novo)
+
+Desde a versão 1.4.0 existem dois caminhos para levar mudanças a quem usa o APK.
+
+**1. Só código (telas, regras, textos): EAS Update, sem reinstalar.**
+- `app.json`: `updates.url` aponta para o projeto no EAS; `checkAutomatically: ON_LOAD` e `fallbackToCacheTimeout: 0`. O app abre na hora com a versão que já tem, baixa a nova em segundo plano e passa a usá-la **na abertura seguinte**. Nunca interrompe um treino.
+- `runtimeVersion` usa a regra `fingerprint`: o EAS calcula uma impressão digital da parte nativa (bibliotecas, permissões, plugins, configuração). Uma atualização só chega aos APKs com a mesma impressão; se a parte nativa mudou, ela não é entregue a APKs antigos e nada quebra.
+- Cada perfil do `eas.json` tem um canal (`development`, `preview`, `production`). O APK da família é o `preview`.
+- Publicar:
+
+```bash
+npx eas-cli@latest update --channel preview --environment preview --message "fix: ..."
+```
+
+- Não aumente `version` para uma atualização só de código. A `version` representa o APK instalado: é com ela que o card de versão nova compara. A impressão digital ignora a `version`, então aumentá-la num APK sem mudança nativa não impede que as atualizações cheguem aos APKs anteriores.
+- O Perfil mostra no rodapé a versão do APK e, se estiver rodando uma atualização baixada, a data dela (`appVersionLabel`, `src/lib/appVersion.ts`).
+- No Expo Go e na web o EAS Update não se aplica. A web continua com `expo export` + `eas deploy`.
+
+**2. Mudança nativa (biblioteca nova, permissão, ícone, splash, plugin): APK novo + GitHub Release.**
+1. Aumente `version` no `app.json` e gere o APK (`npx eas-cli@latest build -p android --profile preview`).
+2. Baixe o `.apk` do build e renomeie para `meowfit.apk`.
+3. No GitHub: **Releases → Draft a new release**, tag `v<versão>` (ex.: `v1.4.0`), anexe o `meowfit.apk` e publique (sem marcar "pre-release").
+4. Os APKs antigos mostram no "Hoje" o card **"Versão nova do app"** com "Baixar" (abre o `.apk` do release) e "Agora não" (esconde até sair uma versão mais nova que essa; `settings`, chave `apk_dismissed`).
+5. Link fixo para mandar para alguém: `https://github.com/LuizaFerri/meowfit/releases/latest/download/meowfit.apk`.
+
+**Como o card decide** (`ApkUpdateCard` e `src/lib/apkReleaseLogic.ts`): uma vez ao abrir o "Hoje", só no Android fora do Expo Go, lê `https://api.github.com/repos/LuizaFerri/meowfit/releases/latest`. `readRelease` ignora rascunhos, pre-releases e tags que não são versão, e prefere o anexo `.apk` (senão, a página do release). `updateToShow` compara com a versão do APK instalado (`Application.nativeApplicationVersion`) número a número (`isNewer`). Sem internet, sem release ou com erro, o card simplesmente não aparece.

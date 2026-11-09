@@ -152,7 +152,17 @@ npx eas-cli@latest login
 npx eas-cli@latest build -p android --profile preview
 ```
 
-Antes de cada build, aumente o `version` no `app.json`. No fim, o EAS mostra um link e um QR code: é só baixar o `.apk` no celular e instalar por cima, sem perder os dados.
+Antes de cada build, aumente o `version` no `app.json`. No fim, o EAS mostra um link e um QR code: é só baixar o `.apk` no celular e instalar por cima, sem perder os dados. Publique o `.apk` num GitHub Release (`v<versão>`, anexo `meowfit.apk`): os celulares com versões antigas mostram o aviso "Versão nova do app".
+
+### Atualizações sem reinstalar (EAS Update)
+
+Mudanças só de código (telas, regras, textos) chegam sozinhas, sem APK novo: o app baixa em segundo plano e aplica na abertura seguinte.
+
+```bash
+npx eas-cli@latest update --channel preview --environment preview --message "fix: ..."
+```
+
+Bibliotecas, permissões, ícone e splash continuam exigindo APK novo. A regra `fingerprint` garante que uma atualização nunca chegue a um APK incompatível.
 
 ### Web / iPhone (PWA)
 
