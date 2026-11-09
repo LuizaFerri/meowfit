@@ -1,5 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
+import { readAsStringAsync } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
@@ -46,7 +47,19 @@ export async function pickTextFile(): Promise<{ name: string; text: string } | n
     const text = asset.file ? await asset.file.text() : await (await fetch(asset.uri)).text();
     return { name: asset.name, text };
   }
-  return { name: asset.name, text: await new File(asset.uri).text() };
+  return { name: asset.name, text: await readUri(asset.uri) };
+}
+
+async function readUri(uri: string): Promise<string> {
+  try {
+    return await new File(uri).text();
+  } catch {}
+  try {
+    return await readAsStringAsync(uri);
+  } catch {}
+  const res = await fetch(uri);
+  if (!res.ok) throw new Error('Não foi possível ler o arquivo escolhido.');
+  return res.text();
 }
 
 export const safeFileName = (s: string) =>
