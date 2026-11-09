@@ -144,7 +144,7 @@ async function scheduleWater(db: SQLiteDatabase, pid: number | null) {
   const ml = await getWater(db, pid, todayKey());
   const today = new Date().getDate();
 
-  for (const at of waterSlots(settings, new Date(), ml >= goal, 4)) {
+  for (const at of waterSlots(settings, new Date(), ml >= goal, 7)) {
     const body =
       at.getDate() === today
         ? `Você está em ${fmtNum(ml / 1000)} de ${fmtNum(goal / 1000)} L hoje. Que tal um copo agora?`
@@ -154,4 +154,35 @@ async function scheduleWater(db: SQLiteDatabase, pid: number | null) {
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: WATER_CHANNEL },
     });
   }
+}
+
+const triggerTime = (trigger: unknown): number | null => {
+  const t = trigger as { value?: unknown; date?: unknown } | null;
+  const v = t?.value ?? t?.date;
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string' || v instanceof Date) {
+    const ms = new Date(v).getTime();
+    return Number.isNaN(ms) ? null : ms;
+  }
+  return null;
+};
+
+export async function nextScheduled(kind: 'water' | 'workout'): Promise<Date | null> {
+  if (!notificationsAvailable) return null;
+  const all = await Notifications.getAllScheduledNotificationsAsync();
+  const now = Date.now();
+  const times = all
+    .filter((n) => n.content.data?.kind === kind)
+    .map((n) => triggerTime(n.trigger))
+    .filter((t): t is number => t !== null && t > now)
+    .sort((a, b) => a - b);
+  return times.length ? new Date(times[0]) : null;
+}
+
+export async function scheduleWaterTest(seconds = 10) {
+  if (!notificationsAvailable) return;
+  await Notifications.scheduleNotificationAsync({
+    content: { title: 'Água 💧', body: 'Teste do lembrete: se você está vendo isso, os lembretes de água funcionam.', data: { kind: 'water-test' } },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds, channelId: WATER_CHANNEL },
+  });
 }

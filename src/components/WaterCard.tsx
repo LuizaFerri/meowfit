@@ -1,11 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Switch, View } from 'react-native';
 import { Alert } from '@/lib/alert';
 import { addWater, getSetting, getWater, setSetting } from '@/db/queries';
 import { todayKey } from '@/lib/dates';
-import { ensurePermission, notificationsAvailable, syncWaterReminders, waterKey } from '@/lib/notifications';
+import { ensurePermission, nextScheduled, notificationsAvailable, scheduleWaterTest, syncWaterReminders, waterKey } from '@/lib/notifications';
 import { DEFAULT_WATER_REMINDER, fmtClock, type WaterReminder } from '@/lib/water';
 import { useData, useProfile, useWrite } from '@/store/useApp';
 import { Body, Button, Card, Chip, ProgressBar, Row, Subtitle, fmtNum } from './ui';
@@ -15,6 +15,12 @@ const INTERVALS = [60, 90, 120, 180];
 const STARTS = [6, 7, 8, 9, 10].map((h) => h * 60);
 const ENDS = [19, 20, 21, 22, 23].map((h) => h * 60);
 
+const fmtNext = (d: Date) => {
+  const today = new Date().toDateString() === d.toDateString();
+  const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return today ? `hoje às ${time}` : `${d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })} às ${time}`;
+};
+
 export function WaterCard() {
   const { colors } = useTheme();
   const profile = useProfile();
@@ -23,6 +29,7 @@ export function WaterCard() {
   const db = useSQLiteContext();
   const [open, setOpen] = useState(false);
   const [local, setLocal] = useState<WaterReminder | null>(null);
+  const [nextAt, setNextAt] = useState<Date | null | undefined>(undefined);
   const [data] = useData(
     async (db, pid) => ({
       ml: await getWater(db, pid, date),
@@ -33,6 +40,17 @@ export function WaterCard() {
   const goal = (profile.plan.targets.waterL ?? 2) * 1000;
   const value = data?.ml ?? 0;
   const reminder = local ?? data?.reminder ?? DEFAULT_WATER_REMINDER;
+
+  useEffect(() => {
+    if (!open || !reminder.enabled) return;
+    let alive = true;
+    nextScheduled('water')
+      .then((d) => alive && setNextAt(d))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [open, reminder.enabled, data]);
 
   const [seen, setSeen] = useState({ data, pid: profile.id });
   if (seen.data !== data || seen.pid !== profile.id) {
@@ -56,7 +74,16 @@ export function WaterCard() {
     }
     setLocal(next);
     await setSetting(db, waterKey(profile.id), next);
-    syncWaterReminders(db, profile.id);
+    await syncWaterReminders(db, profile.id);
+    setNextAt(await nextScheduled('water').catch(() => null));
+  };
+
+  const test = async () => {
+    if (!(await ensurePermission())) {
+      return Alert.alert('Notificações bloqueadas', 'Libere as notificações do app nas configurações do Android.');
+    }
+    await scheduleWaterTest(10);
+    Alert.alert('Teste agendado', 'Saia do app ou bloqueie a tela: a notificação chega em 10 segundos.');
   };
 
   return (
@@ -129,6 +156,18 @@ export function WaterCard() {
               </Row>
               <Body muted style={{ fontSize: 13 }}>
                 Os lembretes param no dia em que você bate a meta.
+              </Body>
+              <Body style={{ fontSize: 13, fontWeight: '600' }}>
+                {nextAt === undefined
+                  ? ''
+                  : nextAt
+                    ? `Próximo lembrete: ${fmtNext(nextAt)}`
+                    : 'Nenhum lembrete agendado agora.'}
+              </Body>
+              <Button small variant="ghost" icon="notifications-outline" label="Testar lembrete" onPress={test} />
+              <Body muted style={{ fontSize: 12 }}>
+                Se o teste chega mas os lembretes não, o celular está segurando o app para economizar bateria: em Configurações → Apps →
+                MeowFit → Economia de bateria, escolha “Sem restrições” (no Xiaomi, ative também o “Início automático”).
               </Body>
             </>
           )}

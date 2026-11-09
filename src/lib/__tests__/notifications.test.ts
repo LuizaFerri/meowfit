@@ -52,8 +52,8 @@ test('rapid changes are coalesced and the last settings win, with no duplicates'
   expect(Notifications.getAllScheduledNotificationsAsync).toHaveBeenCalledTimes(2);
   const now = new Date();
   const remainingToday = Math.floor((23 * 60 - (now.getHours() * 60 + now.getMinutes())) / 180) + 1;
-  expect(mockScheduled.length).toBeGreaterThanOrEqual(3 * 8);
-  expect(mockScheduled.length).toBeLessThanOrEqual(remainingToday + 3 * 8);
+  expect(mockScheduled.length).toBeGreaterThanOrEqual(6 * 8);
+  expect(mockScheduled.length).toBeLessThanOrEqual(remainingToday + 6 * 8);
 });
 
 test('turning reminders off cancels everything', async () => {
